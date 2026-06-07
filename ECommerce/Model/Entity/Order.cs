@@ -1,3 +1,5 @@
+using ECommerce.Model.Enum;
+
 namespace ECommerce.Model.Entity;
 
 public class Order
@@ -6,7 +8,7 @@ public class Order
     public int UserId { get; set; }
     public int ShippingAddressId { get; set; }
     public decimal TotalAmount { get; set; }
-    public string Payment { get; set; } = string.Empty;
-    public string PaymentStatus { get; set; } = string.Empty;
+    public PaymentMethod Payment { get; set; }
+    public OrderStatus PaymentStatus { get; set; }
     public DateTime OrderDate { get; set; }
 }
