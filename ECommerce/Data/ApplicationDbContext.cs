@@ -9,7 +9,9 @@ namespace ECommerce.Data
         {
         }
         public DbSet<Address> Addresses { get; set; }
-        public DbSet<Address> Products { get; set; }
+        public DbSet<Cart> Cart { get; set; }
+        public DbSet<CartItem> CartItem { get; set; }
+        public DbSet<Product> Products { get; set; }
         public DbSet<Category> Categories { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
