@@ -8,6 +8,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Model\Entitiy\**" />
+    <Content Remove="Model\Entitiy\**" />
+    <EmbeddedResource Remove="Model\Entitiy\**" />
+    <None Remove="Model\Entitiy\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="AutoMapper" Version="16.1.1" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="9.0.16" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.16">
@@ -19,7 +26,6 @@
 
   <ItemGroup>
     <Folder Include="Controllers\" />
-    <Folder Include="Model\Entitiy\" />
   </ItemGroup>
 
 </Project>
