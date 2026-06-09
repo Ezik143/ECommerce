@@ -15,8 +15,6 @@ namespace ECommerce.Data
         public DbSet<Category> Categories { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
-        public DbSet<Order> Order { get; set; }
-        public DbSet<Product> Product { get; set; }
         public DbSet<User> User { get; set; }
 
     }
