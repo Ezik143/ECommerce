@@ -3,8 +3,11 @@ using ECommerce.Data;
 using ECommerce.Model.Dto.Request;
 using ECommerce.Model.Dto.Response;
 using ECommerce.Model.Entity;
+using ECommerce.Model.Enum;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace ECommerce.Controllers
 {
@@ -22,14 +25,36 @@ namespace ECommerce.Controllers
         }
 
         [HttpGet]
+        [Authorize(Policy = "OrderRead")]
         public async Task<IActionResult> GetAllOrderItems()
         {
-            var entities = await _context.OrderItems.ToListAsync();
+            IQueryable<OrderItem> query = _context.OrderItems;
+
+            // Sellers can only see order items containing their own products
+            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
+            if (currentUserRole == nameof(UserRole.Seller))
+            {
+                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                                  ?? User.FindFirstValue("sub");
+                var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
+                if (currentUser != null)
+                {
+                    var sellerProductIds = await _context.Products
+                        .Where(p => p.SellerId == currentUser.UserId)
+                        .Select(p => p.ProductId)
+                        .ToListAsync();
+
+                    query = query.Where(oi => sellerProductIds.Contains(oi.ProductId));
+                }
+            }
+
+            var entities = await query.ToListAsync();
             var responseDtos = _mapper.Map<List<OrderItemResponse>>(entities);
             return Ok(responseDtos);
         }
 
         [HttpGet("{id}")]
+        [Authorize(Policy = "OrderRead")]
         public async Task<IActionResult> GetOrderItem(int id)
         {
             var entity = await _context.OrderItems.FindAsync(id);
@@ -43,6 +68,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpGet("order/{orderId}")]
+        [Authorize(Policy = "OrderRead")]
         public async Task<IActionResult> GetOrderItemsByOrderId(int orderId)
         {
             var entities = await _context.OrderItems
@@ -54,6 +80,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = "CustomerSelf")]
         public async Task<IActionResult> CreateOrderItem(CreateOrderItemRequest request)
         {
             if (request == null)
@@ -72,6 +99,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = "OrderFulfillment")]
         public async Task<IActionResult> UpdateOrderItem(int id, UpdateOrderItemRequest request)
         {
             if (request == null)
@@ -94,6 +122,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> DeleteOrderItem(int id)
         {
             var entity = await _context.OrderItems.FindAsync(id);

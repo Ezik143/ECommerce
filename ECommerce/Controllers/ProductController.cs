@@ -3,8 +3,11 @@ using ECommerce.Data;
 using ECommerce.Model.Dto.Request;
 using ECommerce.Model.Dto.Response;
 using ECommerce.Model.Entity;
+using ECommerce.Model.Enum;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace ECommerce.Controllers
 {
@@ -22,6 +25,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpGet]
+        [Authorize(Policy = "CatalogRead")]
         public async Task<IActionResult> GetAllProducts()
         {
             var entities = await _context.Products.ToListAsync();
@@ -30,6 +34,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize(Policy = "CatalogRead")]
         public async Task<IActionResult> GetProduct(int id)
         {
             var entity = await _context.Products.FindAsync(id);
@@ -43,6 +48,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = "ProductWrite")]
         public async Task<IActionResult> CreateProduct(CreateProductRequest request)
         {
             if (request == null)
@@ -51,6 +57,21 @@ namespace ECommerce.Controllers
             }
 
             var entity = _mapper.Map<Product>(request);
+
+            // If the user is a Seller, automatically assign SellerId from the authenticated user
+            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
+            if (currentUserRole == nameof(UserRole.Seller))
+            {
+                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                                  ?? User.FindFirstValue("sub");
+                var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
+                if (currentUser == null)
+                {
+                    return Unauthorized("Authenticated user not found in local database.");
+                }
+                entity.SellerId = currentUser.UserId;
+            }
+
             _context.Products.Add(entity);
             await _context.SaveChangesAsync();
 
@@ -59,6 +80,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = "ProductWrite")]
         public async Task<IActionResult> UpdateProduct(int id, UpdateProductRequest request)
         {
             if (request == null)
@@ -72,6 +94,19 @@ namespace ECommerce.Controllers
                 return NotFound();
             }
 
+            // Ownership check: Sellers can only update their own products
+            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
+            if (currentUserRole == nameof(UserRole.Seller))
+            {
+                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                                  ?? User.FindFirstValue("sub");
+                var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
+                if (currentUser == null || entity.SellerId != currentUser.UserId)
+                {
+                    return Forbid();
+                }
+            }
+
             _mapper.Map(request, entity);
             await _context.SaveChangesAsync();
 
@@ -80,6 +115,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> DeleteProduct(int id)
         {
             var entity = await _context.Products.FindAsync(id);

@@ -2,9 +2,11 @@
 using ECommerce.Data;
 using ECommerce.Model.Dto.Request;
 using ECommerce.Model.Dto.Response;
+using ECommerce.Model.Enum;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-
+using System.Security.Claims;
 
 namespace ECommerce.Controllers
 {
@@ -22,14 +24,31 @@ namespace ECommerce.Controllers
         }
 
         [HttpGet]
+        [Authorize(Policy = "Authenticated")]
         public async Task<ActionResult<IEnumerable<AddressResponse>>> GetAddresses()
         {
-            var entities = await _context.Addresses.ToListAsync();
+            IQueryable<Model.Entity.Address> query = _context.Addresses;
+
+            // Customers can only see their own addresses
+            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
+            if (currentUserRole == nameof(UserRole.Customer))
+            {
+                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                                  ?? User.FindFirstValue("sub");
+                var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
+                if (currentUser != null)
+                {
+                    query = query.Where(a => a.UserId == currentUser.UserId);
+                }
+            }
+
+            var entities = await query.ToListAsync();
             var responseDtos = _mapper.Map<List<AddressResponse>>(entities);
             return Ok(responseDtos);
         }
 
         [HttpPost]
+        [Authorize(Policy = "CustomerSelf")]
         public async Task<ActionResult<AddressResponse>> CreateAddress(CreateAddressRequest request)
         {
             if (request == null)
@@ -38,6 +57,20 @@ namespace ECommerce.Controllers
             }
 
             var entity = _mapper.Map<Model.Entity.Address>(request);
+
+            // Automatically assign the UserId for customers
+            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
+            if (currentUserRole == nameof(UserRole.Customer))
+            {
+                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                                  ?? User.FindFirstValue("sub");
+                var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
+                if (currentUser != null)
+                {
+                    entity.UserId = currentUser.UserId;
+                }
+            }
+
             _context.Addresses.Add(entity);
             await _context.SaveChangesAsync();
 
@@ -46,6 +79,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = "CustomerSelf")]
         public async Task<IActionResult> UpdateAddress(int id, UpdateAddressRequest request)
         {
             if (request == null)
@@ -59,6 +93,19 @@ namespace ECommerce.Controllers
                 return NotFound();
             }
 
+            // Customers can only update their own addresses
+            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
+            if (currentUserRole == nameof(UserRole.Customer))
+            {
+                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                                  ?? User.FindFirstValue("sub");
+                var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
+                if (currentUser == null || entity.UserId != currentUser.UserId)
+                {
+                    return Forbid();
+                }
+            }
+
             _mapper.Map(request, entity);
             await _context.SaveChangesAsync();
 
@@ -67,6 +114,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = "CustomerSelf")]
         public async Task<IActionResult> DeleteAddress(int id)
         {
             var entity = await _context.Addresses.FindAsync(id);
@@ -74,6 +122,20 @@ namespace ECommerce.Controllers
             {
                 return NotFound();
             }
+
+            // Customers can only delete their own addresses
+            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
+            if (currentUserRole == nameof(UserRole.Customer))
+            {
+                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                                  ?? User.FindFirstValue("sub");
+                var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
+                if (currentUser == null || entity.UserId != currentUser.UserId)
+                {
+                    return Forbid();
+                }
+            }
+
             _context.Addresses.Remove(entity);
             await _context.SaveChangesAsync();
             return NoContent();
