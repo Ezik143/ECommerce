@@ -1,3 +1,5 @@
+using ECommerce.Model.Enum;
+
 namespace ECommerce.Model.Dto.Request;
 
 public class CreateUserRequest
@@ -5,4 +7,5 @@ public class CreateUserRequest
     public string Email { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
+    public UserRole Role { get; set; } = UserRole.Customer;
 }

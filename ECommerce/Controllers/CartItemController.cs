@@ -3,6 +3,7 @@ using ECommerce.Data;
 using ECommerce.Model.Dto.Request;
 using ECommerce.Model.Dto.Response;
 using ECommerce.Model.Entity;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,6 +11,7 @@ namespace ECommerce.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "CustomerSelf")]
     public class CartItemController : ControllerBase
     {
         private readonly ApplicationDbContext _context;

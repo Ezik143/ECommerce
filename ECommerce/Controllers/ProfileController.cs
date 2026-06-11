@@ -34,7 +34,7 @@ namespace ECommerce.Controllers
             var localUser = await _context.User
                 .FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
 
-            // 3. Return the data
+            // 3. Return the data including role
             return Ok(new
             {
                 Auth0UserId = auth0UserId,
@@ -42,6 +42,7 @@ namespace ECommerce.Controllers
                 Name = User.FindFirstValue(ClaimTypes.Name),
                 LocalUserId = localUser?.UserId,
                 LocalFullName = localUser?.FullName,
+                Role = localUser?.Role.ToString() ?? "Customer",
                 Message = "Successfully authenticated via Auth0!"
             });
         }

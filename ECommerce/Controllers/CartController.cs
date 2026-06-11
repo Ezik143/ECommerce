@@ -3,14 +3,16 @@ using ECommerce.Data;
 using ECommerce.Model.Dto.Request;
 using ECommerce.Model.Dto.Response;
 using ECommerce.Model.Entity;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-
+using System.Security.Claims;
 
 namespace ECommerce.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize(Policy = "CustomerSelf")]
     public class CartController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
@@ -72,16 +74,15 @@ namespace ECommerce.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCart(int id)
         {
-            var entity = await _context.Cart.FindAsync();
+            var entity = await _context.Cart.FindAsync(id);
             if (entity == null)
             {
                 return NotFound();
             }
 
             _context.Cart.Remove(entity);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
             return NoContent();
         }
     }
-
 }

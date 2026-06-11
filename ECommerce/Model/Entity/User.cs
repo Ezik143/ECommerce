@@ -1,3 +1,5 @@
+using ECommerce.Model.Enum;
+
 namespace ECommerce.Model.Entity;
 
 public class User
@@ -6,5 +8,6 @@ public class User
     public string? Auth0Id { get; set; }
     public string Email { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
+    public UserRole Role { get; set; } = UserRole.Customer;
     public DateTime CreatedAt { get; set; }
 }
