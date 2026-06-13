@@ -24,6 +24,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpGet]
+        [Authorize(Policy = "AdminOrCustomerSupport")]
         public async Task<IActionResult> GetAllUsers()
         {
             var entities = await _context.User.ToListAsync();
@@ -32,6 +33,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize(Policy = "AdminOrCustomerSupport")]
         public async Task<IActionResult> GetUser(int id)
         {
             var entity = await _context.User.FindAsync(id);
@@ -45,6 +47,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = "AdminOrCustomerSupport")]
         public async Task<IActionResult> CreateUser(CreateUserRequest request)
         {
             if (request == null)
@@ -61,6 +64,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = "AdminOrCustomerSupport")]
         public async Task<IActionResult> UpdateUser(int id, UpdateUserRequest request)
         {
             if (request == null)
@@ -82,6 +86,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> DeleteUser(int id)
         {
             var entity = await _context.User.FindAsync(id);

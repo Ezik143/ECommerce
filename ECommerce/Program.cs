@@ -1,10 +1,18 @@
+using ECommerce.Authorization.Handlers;
+using ECommerce.Authorization.Requirements;
 using ECommerce.Data;
+using ECommerce.Model.Enum;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var secretKey = Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!);
 
 //Registering AutoMapper and scanning the assembly for profiles
 builder.Services.AddAutoMapper(cfg =>
@@ -19,7 +27,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"));
 });
 
-//Registering the repository and service layers for dependency injection
+// Auth0 JWT Authentication only
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -27,49 +35,49 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         options.Audience = builder.Configuration["Auth0:Audience"];
     });
 
-//Defining authorization policies based on user roles and permissions yawa
 builder.Services.AddAuthorization(options =>
 {
-    // Admin-only access
-    options.AddPolicy("AdminOnly", policy =>
-        policy.RequireRole("Admin"));
+    // Role-based policies
+    options.AddPolicy("AdminOrCustomerSupport", p => p.Requirements.Add(new RoleRequirement(UserRole.Admin, UserRole.CustomerSupport)));
+    options.AddPolicy("CustomerOnly", p =>
+        p.Requirements.Add(new RoleRequirement(UserRole.Customer)));
 
-    // Catalog management: Create, update, delete products & categories
-    options.AddPolicy("CatalogAccess", policy =>
-        policy.RequireRole("Admin", "CatalogManager"));
+    options.AddPolicy("SellerOnly", p =>
+        p.Requirements.Add(new RoleRequirement(UserRole.Seller)));
 
-    // Catalog read: Browse products and categories
-    options.AddPolicy("CatalogRead", policy =>
-        policy.RequireRole("Admin", "CatalogManager", "Seller", "Customer", "OrderManager", "CustomerSupport"));
+    options.AddPolicy("AdminOnly", p =>
+        p.Requirements.Add(new RoleRequirement(UserRole.Admin)));
 
-    // Product write: Sellers can manage their own products (checked in controller), CatalogManager & Admin can manage all
-    options.AddPolicy("ProductWrite", policy =>
-        policy.RequireRole("Admin", "CatalogManager", "Seller"));
+    options.AddPolicy("OrderManagerOnly", p =>
+        p.Requirements.Add(new RoleRequirement(UserRole.OrderManager)));
 
-    // Order fulfillment: View and update order statuses
-    options.AddPolicy("OrderFulfillment", policy =>
-        policy.RequireRole("Admin", "OrderManager"));
+    options.AddPolicy("CustomerSupportOnly", p =>
+        p.Requirements.Add(new RoleRequirement(UserRole.CustomerSupport)));
 
-    // Order read: View orders
-    options.AddPolicy("OrderRead", policy =>
-        policy.RequireRole("Admin", "OrderManager", "CustomerSupport", "Customer", "Seller"));
+    options.AddPolicy("SellerOrAdmin", p =>
+        p.Requirements.Add(new RoleRequirement(UserRole.Seller, UserRole.Admin)));
 
-    // Customer self-service: Manage own cart, addresses, profile
-    options.AddPolicy("CustomerSelf", policy =>
-        policy.RequireRole("Admin", "Customer"));
+    options.AddPolicy("OrderManagerOrAdmin", p =>
+        p.Requirements.Add(new RoleRequirement(UserRole.OrderManager, UserRole.Admin)));
 
-    // Seller or admin: Manage own products and view own sales
-    options.AddPolicy("SellerOrAdmin", policy =>
-        policy.RequireRole("Admin", "Seller"));
+    options.AddPolicy("StaffOnly", p =>
+        p.Requirements.Add(new RoleRequirement(
+            UserRole.Admin, UserRole.OrderManager, UserRole.CustomerSupport)));
 
-    // Customer support: Read-only access to user profiles and orders
-    options.AddPolicy("SupportReadOnly", policy =>
-        policy.RequireRole("Admin", "CustomerSupport"));
-
-    // Authenticated users (any logged-in user)
-    options.AddPolicy("Authenticated", policy =>
-        policy.RequireAuthenticatedUser());
+    // Resource-based policies
+    options.AddPolicy("AddressOwner", p =>
+        p.Requirements.Add(new AddressOwnerRequirement()));
+    options.AddPolicy("OrderOwner", p =>
+        p.Requirements.Add(new OrderOwnerRequirement()));
+    options.AddPolicy("ProductOwner", p =>
+        p.Requirements.Add(new ProductOwnerRequirement()));
 });
+
+// Register authorization handlers
+builder.Services.AddTransient<IAuthorizationHandler, RoleAuthorizationHandler>();
+builder.Services.AddTransient<IAuthorizationHandler, AddressAuthorizationHandler>();
+builder.Services.AddTransient<IAuthorizationHandler, OrderAuthorizationHandler>();
+builder.Services.AddTransient<IAuthorizationHandler, ProductAuthorizationHandler>();
 
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi

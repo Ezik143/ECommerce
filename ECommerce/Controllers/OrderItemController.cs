@@ -25,7 +25,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpGet]
-        [Authorize(Policy = "OrderRead")]
+        [Authorize]
         public async Task<IActionResult> GetAllOrderItems()
         {
             IQueryable<OrderItem> query = _context.OrderItems;
@@ -54,7 +54,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpGet("{id}")]
-        [Authorize(Policy = "OrderRead")]
+        [Authorize]
         public async Task<IActionResult> GetOrderItem(int id)
         {
             var entity = await _context.OrderItems.FindAsync(id);
@@ -68,7 +68,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpGet("order/{orderId}")]
-        [Authorize(Policy = "OrderRead")]
+        [Authorize]
         public async Task<IActionResult> GetOrderItemsByOrderId(int orderId)
         {
             var entities = await _context.OrderItems
@@ -80,7 +80,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpPost]
-        [Authorize(Policy = "CustomerSelf")]
+        [Authorize(Policy = "OrderManagerOrAdmin")]
         public async Task<IActionResult> CreateOrderItem(CreateOrderItemRequest request)
         {
             if (request == null)
@@ -99,7 +99,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Policy = "OrderFulfillment")]
+        [Authorize(Policy = "OrderManagerOrAdmin")]
         public async Task<IActionResult> UpdateOrderItem(int id, UpdateOrderItemRequest request)
         {
             if (request == null)
@@ -122,7 +122,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Policy = "AdminOnly")]
+        [Authorize(Policy = "OrderManagerOrAdmin")]
         public async Task<IActionResult> DeleteOrderItem(int id)
         {
             var entity = await _context.OrderItems.FindAsync(id);

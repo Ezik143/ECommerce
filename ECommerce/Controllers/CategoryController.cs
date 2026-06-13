@@ -23,7 +23,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpGet]
-        [Authorize(Policy = "CatalogRead")]
+        [Authorize]
         public async Task<IActionResult> GetAllCategories()
         {
             var entities = await _context.Categories.ToListAsync();
@@ -33,7 +33,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpGet("{id}")]
-        [Authorize(Policy = "CatalogRead")]
+        [Authorize]
         public async Task<IActionResult> GetCategory(int id)
         {
             var entity = await _context.Categories.FindAsync(id);
@@ -47,7 +47,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpPost]
-        [Authorize(Policy = "CatalogAccess")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> AddCategory(CreateCategoryRequest request)
         {
             if (request == null)
@@ -66,7 +66,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Policy = "CatalogAccess")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> UpdateCategory(int id, UpdateCategoryRequest request)
         {
             if (request == null)
@@ -88,7 +88,7 @@ namespace ECommerce.Controllers
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Policy = "CatalogAccess")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> DeleteCategory(int id)
         {
             var entity = await _context.Categories.FindAsync(id);
