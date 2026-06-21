@@ -10,9 +10,8 @@ namespace ECommerce.Model.Dto.Profiles
         public ProductProfile()
         {
             CreateMap<Product, ProductResponse>();
-
             CreateMap<CreateProductRequest, Product>()
-                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(src => DateTime.UtcNow));
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow));
 
             CreateMap<UpdateProductRequest, Product>();
         }

@@ -1,8 +1,11 @@
 using ECommerce.Data;
+using ECommerce.Model.Dto.Request;
 using ECommerce.Model.Entity;
+using ECommerce.Model.Enum;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using System.Security.Claims;
 
 namespace ECommerce.Controllers
@@ -42,7 +45,13 @@ namespace ECommerce.Controllers
                 Name = User.FindFirstValue(ClaimTypes.Name),
                 LocalUserId = user?.UserId,
                 LocalFullName = user?.FullName,
+                FirstName = user?.FirstName,
+                MiddleName = user?.MiddleName,
+                LastName = user?.LastName,
+                PhoneNumber = user?.PhoneNumber,
                 Role = user?.Role.ToString() ?? "Customer",
+                HasChosenRole = user?.HasChosenRole ?? false,
+                HasCompletedProfile = user?.HasCompletedProfile ?? false,
                 Message = "Successfully authenticated via Auth0!"
             });
         }
@@ -98,14 +107,116 @@ namespace ECommerce.Controllers
                 Auth0Id = auth0UserId,
                 Email = email,
                 FullName = fullName,
-                Role = Model.Enum.UserRole.Customer,
+                Role = UserRole.Customer,
+                HasChosenRole = false,
                 CreatedAt = DateTime.UtcNow
             };
 
             _context.Add(newUser);
+            try
+            {
+                await _context.SaveChangesAsync();
+            }
+            catch (DbUpdateException ex) when (ex.InnerException is PostgresException pgEx && pgEx.SqlState == "23505")
+            {
+                var existing = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
+                if (existing != null)
+                {
+                    return Ok(new { user = existing, isNew = false });
+                }
+                throw;
+            }
+
+            return Ok(new { user = newUser, isNew = true });
+        }
+
+        [HttpPut("me/details")]
+        public async Task<IActionResult> UpdateProfileDetails([FromBody] CompleteProfileRequest request)
+        {
+            var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+
+            if (string.IsNullOrEmpty(auth0UserId))
+            {
+                return Unauthorized("Auth0 ID not found");
+            }
+
+            var user = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
+
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+
+            user.FirstName = request.FirstName;
+            user.MiddleName = request.MiddleName;
+            user.LastName = request.LastName;
+            user.PhoneNumber = request.PhoneNumber;
+            user.FullName = $"{request.FirstName} {request.MiddleName + " "}{request.LastName}".Trim();
+            user.HasCompletedProfile = true;
+
+            if (!string.IsNullOrEmpty(request.Street) ||
+                !string.IsNullOrEmpty(request.City) ||
+                !string.IsNullOrEmpty(request.State) ||
+                !string.IsNullOrEmpty(request.PostalCode) ||
+                !string.IsNullOrEmpty(request.Country))
+            {
+                var address = new Address
+                {
+                    UserId = user.UserId,
+                    Street = request.Street ?? "",
+                    City = request.City ?? "",
+                    State = request.State ?? "",
+                    PostalCode = request.PostalCode ?? "",
+                    Country = request.Country ?? "",
+                    IsDefault = true
+                };
+                _context.Add(address);
+            }
+
             await _context.SaveChangesAsync();
 
-            return Ok();
+            return Ok(new { message = "Profile completed successfully", user.HasCompletedProfile });
+        }
+
+        [HttpPut("me/role")]
+        public async Task<IActionResult> SetMyRole([FromBody] SetRoleRequest request)
+        {
+            var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+
+            if (string.IsNullOrEmpty(auth0UserId))
+            {
+                return Unauthorized("Auth0 ID not found");
+            }
+
+            var user = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
+
+            if (user == null)
+            {
+                return NotFound("User not found");
+            }
+
+            if (user.HasChosenRole)
+            {
+                return BadRequest("Role has already been chosen");
+            }
+
+            if (!Enum.TryParse<UserRole>(request.Role, true, out var role))
+            {
+                return BadRequest("Invalid role. Use 'Customer' or 'Seller'");
+            }
+
+            if (role != UserRole.Customer && role != UserRole.Seller)
+            {
+                return BadRequest("Only Customer or Seller roles are allowed");
+            }
+
+            user.Role = role;
+            user.HasChosenRole = true;
+            await _context.SaveChangesAsync();
+
+            return Ok(new { user.Role, user.HasChosenRole });
         }
     }
+
+    public record SetRoleRequest(string Role);
 }

@@ -10,5 +10,4 @@ public class ProductResponse
     public decimal Price { get; set; }
     public int StockQuantity { get; set; }
     public string ImageUrl { get; set; } = string.Empty;
-    public DateTime CreatedAt { get; set; }
 }

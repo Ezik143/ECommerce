@@ -1,8 +1,8 @@
 ﻿using AutoMapper;
 using ECommerce.Data;
-using ECommerce.Model.Dto.Request;
 using ECommerce.Model.Dto.Response;
 using ECommerce.Model.Entity;
+using ECommerce.Model.Enum;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -12,77 +12,102 @@ namespace ECommerce.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Policy = "CustomerOnly")]
+    [Authorize]
     public class CartController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
+
         public CartController(ApplicationDbContext context, IMapper mapper)
         {
             _context = context;
             _mapper = mapper;
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetAllCart()
+        [HttpGet("mine")]
+        public async Task<IActionResult> GetMyCart()
         {
-            var entities = await _context.Cart.ToListAsync();
+            var userId = await GetCurrentUserId();
+            if (userId == null)
+                return Unauthorized(new { message = "User not found" });
 
-            var responseDtos = _mapper.Map<List<CartResponse>>(entities);
-            return Ok(responseDtos);
-        }
+            var cart = await _context.Cart
+                .FirstOrDefaultAsync(c => c.UserId == userId.Value);
 
-        [HttpPost]
-        public async Task<IActionResult> CreateCart(CreateCartRequest request)
-        {
-            if (request == null)
+            if (cart == null)
             {
-                return BadRequest("Cart data is required.");
+                cart = new Cart
+                {
+                    UserId = userId.Value,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                };
+                _context.Cart.Add(cart);
+                await _context.SaveChangesAsync();
             }
 
-            var entity = _mapper.Map<Cart>(request);
+            var items = await _context.CartItem
+                .Include(ci => ci.Product)
+                .Where(ci => ci.CartId == cart.CartId)
+                .ToListAsync();
 
-            _context.Cart.Add(entity);
+            var responseDto = _mapper.Map<List<CartItemResponse>>(items);
 
-            await _context.SaveChangesAsync();
+            // var itemDtos = new List<CartItemResponse>();
+            // foreach (var item in items)
+            // {
+            //     var product = await _context.Products.FindAsync(item.ProductId);
+            //     itemDtos.Add(new CartItemResponse
+            //     {
+            //         CartItemId = item.CartItemId,
+            //         CartId = item.CartId,
+            //         ProductId = item.ProductId,
+            //         ProductName = product?.Name ?? "Unknown",
+            //         Price = product?.Price ?? 0,
+            //         ImageUrl = product?.ImageUrl,
+            //         Quantity = item.Quantity,
+            //     });
+            // }
 
-            var responseDto = _mapper.Map<CartResponse>(entity);
-            return Ok(responseDto);
-        }
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateCart(int id, UpdateCartRequest request)
-        {
-            if (request == null)
+            var dto = new CartResponse
             {
-                return BadRequest("Cart data is required.");
-            }
+                CartId = cart.CartId,
+                UserId = cart.UserId,
+                Items = responseDto,
+                TotalAmount = responseDto.Sum(i => i.Product?.Price ?? 0 * i.Quantity),
+                CreatedAt = cart.CreatedAt,
+                UpdatedAt = cart.UpdatedAt,
+            };
 
-            var entity = await _context.Cart.FindAsync(id);
-            if (entity == null)
-            {
-                return NotFound();
-            }
+            return Ok(dto);
 
-            _mapper.Map(request, entity);
-            await _context.SaveChangesAsync();
-
-            var responseDto = _mapper.Map<CartResponse>(entity);
-            return Ok(responseDto);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCart(int id)
         {
-            var entity = await _context.Cart.FindAsync(id);
-            if (entity == null)
-            {
+            var cart = await _context.Cart.FindAsync(id);
+            if (cart == null)
                 return NotFound();
-            }
 
-            _context.Cart.Remove(entity);
+            var userId = await GetCurrentUserId();
+            if (cart.UserId != userId)
+                return Forbid();
+
+            var items = await _context.CartItem.Where(ci => ci.CartId == id).ToListAsync();
+            _context.CartItem.RemoveRange(items);
+            _context.Cart.Remove(cart);
             await _context.SaveChangesAsync();
             return NoContent();
+        }
+
+        private async Task<int?> GetCurrentUserId()
+        {
+            var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (auth0UserId == null) return null;
+
+            var user = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
+            return user?.UserId;
         }
     }
 }

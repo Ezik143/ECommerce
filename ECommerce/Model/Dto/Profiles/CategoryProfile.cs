@@ -9,9 +9,16 @@ namespace ECommerce.Model.Dto.Profiles
     {
         public CategoryProfile()
         {
-            CreateMap<Category, CategoryResponse>();
-            CreateMap<CreateCategoryRequest, Category>();
-            CreateMap<UpdateCategoryRequest, Category>();
+            CreateMap<Category, CategoryResponse>()
+                .ForMember(dest => dest.Children, opt => opt.Ignore());
+
+            CreateMap<CreateCategoryRequest, Category>()
+                .ForMember(dest => dest.CreatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
+                .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow))
+                .ForMember(dest => dest.IsActive, opt => opt.MapFrom(_ => true));
+
+            CreateMap<UpdateCategoryRequest, Category>()
+                .ForMember(dest => dest.UpdatedAt, opt => opt.MapFrom(_ => DateTime.UtcNow));
         }
     }
 }

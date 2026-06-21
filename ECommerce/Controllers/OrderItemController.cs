@@ -30,7 +30,6 @@ namespace ECommerce.Controllers
         {
             IQueryable<OrderItem> query = _context.OrderItems;
 
-            // Sellers can only see order items containing their own products
             var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
             if (currentUserRole == nameof(UserRole.Seller))
             {
@@ -49,8 +48,8 @@ namespace ECommerce.Controllers
             }
 
             var entities = await query.ToListAsync();
-            var responseDtos = _mapper.Map<List<OrderItemResponse>>(entities);
-            return Ok(responseDtos);
+            var result = await BuildOrderItemResponses(entities);
+            return Ok(result);
         }
 
         [HttpGet("{id}")]
@@ -63,8 +62,8 @@ namespace ECommerce.Controllers
                 return NotFound();
             }
 
-            var responseDto = _mapper.Map<OrderItemResponse>(entity);
-            return Ok(responseDto);
+            var result = (await BuildOrderItemResponses(new[] { entity })).FirstOrDefault();
+            return Ok(result);
         }
 
         [HttpGet("order/{orderId}")]
@@ -75,8 +74,8 @@ namespace ECommerce.Controllers
                 .Where(oi => oi.OrderId == orderId)
                 .ToListAsync();
 
-            var responseDtos = _mapper.Map<List<OrderItemResponse>>(entities);
-            return Ok(responseDtos);
+            var result = await BuildOrderItemResponses(entities);
+            return Ok(result);
         }
 
         [HttpPost]
@@ -94,8 +93,8 @@ namespace ECommerce.Controllers
             _context.OrderItems.Add(entity);
             await _context.SaveChangesAsync();
 
-            var responseDto = _mapper.Map<OrderItemResponse>(entity);
-            return Ok(responseDto);
+            var result = (await BuildOrderItemResponses(new[] { entity })).FirstOrDefault();
+            return Ok(result);
         }
 
         [HttpPut("{id}")]
@@ -117,8 +116,8 @@ namespace ECommerce.Controllers
             entity.TotalPrice = entity.Quantity * entity.UnitPrice;
             await _context.SaveChangesAsync();
 
-            var responseDto = _mapper.Map<OrderItemResponse>(entity);
-            return Ok(responseDto);
+            var result = (await BuildOrderItemResponses(new[] { entity })).FirstOrDefault();
+            return Ok(result);
         }
 
         [HttpDelete("{id}")]
@@ -134,6 +133,27 @@ namespace ECommerce.Controllers
             _context.OrderItems.Remove(entity);
             await _context.SaveChangesAsync();
             return NoContent();
+        }
+
+        private async Task<List<OrderItemResponse>> BuildOrderItemResponses(IEnumerable<OrderItem> items)
+        {
+            var itemList = items.ToList();
+            if (itemList.Count == 0)
+                return new List<OrderItemResponse>();
+
+            var productIds = itemList.Select(i => i.ProductId).Distinct().ToList();
+            var products = await _context.Products
+                .Where(p => productIds.Contains(p.ProductId))
+                .ToDictionaryAsync(p => p.ProductId, p => p.Name);
+
+            return itemList.Select(item => new OrderItemResponse
+            {
+                OrderItemId = item.OrderItemId,
+                ProductId = item.ProductId,
+                ProductName = products.GetValueOrDefault(item.ProductId) ?? "Unknown",
+                Price = item.UnitPrice,
+                Quantity = item.Quantity,
+            }).ToList();
         }
     }
 }
