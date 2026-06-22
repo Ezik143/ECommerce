@@ -68,6 +68,8 @@ export interface CartResponse {
   userId: number;
   items: CartItemResponse[];
   totalAmount: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CartItemResponse {
@@ -76,9 +78,14 @@ export interface CartItemResponse {
   productId: number;
   product: {
     productId: number;
+    categoryId: number;
+    sellerId: number;
     name: string;
+    description: string;
     price: number;
+    stockQuantity: number;
     imageUrl: string | null;
+    createdAt: string;
   } | null;
   quantity: number;
 }

@@ -6,6 +6,7 @@ using ECommerce.Model.Entity;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace ECommerce.Controllers
 {
@@ -26,45 +27,29 @@ namespace ECommerce.Controllers
 
         [HttpGet]
         [Authorize]
-        public async Task<IActionResult> GetAllProducts()
+        public async Task<IActionResult> GetAllProducts([FromQuery] int? categoryId)
         {
-            var entity = await _context.Products.ToListAsync();
+            try
+            {
+                var query = _context.Products
+                    .Include(p => p.Category)
+                    .Include(p => p.Seller)
+                    .AsQueryable();
 
-            var dto = _mapper.Map<List<ProductResponse>>(entity);
+                if (categoryId.HasValue)
+                    query = query.Where(p => p.CategoryId == categoryId.Value);
 
-            return Ok(dto);
+                var entities = await query.ToListAsync();
 
-            // try
-            // {
-            //     var query = _context.Products.AsQueryable();
+                var dto = _mapper.Map<List<ProductResponse>>(entities);
 
-            //     if (categoryId.HasValue)
-            //         query = query.Where(p => p.CategoryId == categoryId.Value);
-
-            //     var entities = await query.ToListAsync();
-
-            //     var dtos = entities.Select(p => new ProductResponse
-            //     {
-            //         ProductId = p.ProductId,
-            //         CategoryId = p.CategoryId,
-            //         CategoryName = _context.Categories.Where(c => c.CategoryId == p.CategoryId).Select(c => c.Name).FirstOrDefault() ?? "",
-            //         SellerId = p.SellerId,
-            //         SellerName = _context.User.Where(u => u.UserId == p.SellerId).Select(u => u.FullName).FirstOrDefault() ?? "",
-            //         Name = p.Name,
-            //         Description = p.Description,
-            //         Price = p.Price,
-            //         StockQuantity = p.StockQuantity,
-            //         ImageUrl = p.ImageUrl,
-            //         CreatedAt = p.CreatedAt,
-            //     }).ToList();
-
-            //     return Ok(dtos);
-            // }
-            // catch (Exception ex)
-            // {
-            //     _logger.LogError(ex, "Error fetching products");
-            //     return StatusCode(500, new { message = "Failed to load products" });
-            // }
+                return Ok(dto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching products");
+                return StatusCode(500, new { message = "Failed to load products" });
+            }
         }
 
         [HttpGet("{id}")]
@@ -73,24 +58,13 @@ namespace ECommerce.Controllers
         {
             try
             {
-                var entity = await _context.Products.FindAsync(id);
+                var entity = await _context.Products
+                    .Include(p => p.Category)
+                    .Include(p => p.Seller)
+                    .FirstOrDefaultAsync(p => p.ProductId == id);
+
                 if (entity == null)
                     return NotFound();
-
-                // var dto = new ProductResponse
-                // {
-                //     ProductId = entity.ProductId,
-                //     CategoryId = entity.CategoryId,
-                //     CategoryName = await _context.Categories.Where(c => c.CategoryId == entity.CategoryId).Select(c => c.Name).FirstOrDefaultAsync() ?? "",
-                //     SellerId = entity.SellerId,
-                //     SellerName = await _context.User.Where(u => u.UserId == entity.SellerId).Select(u => u.FullName).FirstOrDefaultAsync() ?? "",
-                //     Name = entity.Name,
-                //     Description = entity.Description,
-                //     Price = entity.Price,
-                //     StockQuantity = entity.StockQuantity,
-                //     ImageUrl = entity.ImageUrl,
-                //     CreatedAt = entity.CreatedAt,
-                // };
 
                 var dto = _mapper.Map<ProductResponse>(entity);
 
@@ -107,15 +81,32 @@ namespace ECommerce.Controllers
         [Authorize(Policy = "SellerOnly")]
         public async Task<IActionResult> CreateProduct(CreateProductRequest request)
         {
-            if (request == null)
+            try
             {
-                return BadRequest();
+                if (request == null)
+                    return BadRequest(new { message = "Product data is required." });
+
+                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+                var currentUser = auth0UserId != null
+                    ? await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId)
+                    : null;
+                if (currentUser == null)
+                    return Unauthorized(new { message = "Seller account not found." });
+
+                var entity = _mapper.Map<Product>(request);
+                entity.SellerId = currentUser.UserId;
+
+                await _context.Products.AddAsync(entity);
+                await _context.SaveChangesAsync();
+
+                var dto = _mapper.Map<ProductResponse>(entity);
+                return Ok(dto);
             }
-            var entity = _mapper.Map<Product>(request);
-            await _context.Products.AddAsync(entity);
-            await _context.SaveChangesAsync();
-            var dto = _mapper.Map(request, entity);
-            return Ok(dto);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating product");
+                return StatusCode(500, new { message = ex.InnerException?.Message ?? ex.Message });
+            }
         }
 
         // [HttpPost]
@@ -189,18 +180,30 @@ namespace ECommerce.Controllers
         [Authorize(Policy = "ProductOwner")]
         public async Task<IActionResult> UpdateProduct(int id, UpdateProductRequest request)
         {
-            if (request == null)
-                return BadRequest(new { message = "Product data is required." });
+            try
+            {
+                if (request == null)
+                    return BadRequest(new { message = "Product data is required." });
 
-            var entity = await _context.Products.FindAsync(id);
-            if (entity == null)
-                return NotFound();
+                var entity = await _context.Products
+                    .Include(p => p.Category)
+                    .Include(p => p.Seller)
+                    .FirstOrDefaultAsync(p => p.ProductId == id);
 
-            _mapper.Map(entity, request);
-            await _context.SaveChangesAsync();
+                if (entity == null)
+                    return NotFound();
 
-            var dto = _mapper.Map(request, entity);
-            return Ok(dto);
+                _mapper.Map(request, entity);
+                await _context.SaveChangesAsync();
+
+                var dto = _mapper.Map<ProductResponse>(entity);
+                return Ok(dto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error updating product {ProductId}", id);
+                return StatusCode(500, new { message = ex.InnerException?.Message ?? ex.Message });
+            }
         }
 
         // [HttpPut("{id}")]
