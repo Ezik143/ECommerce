@@ -53,22 +53,6 @@ namespace ECommerce.Controllers
 
             var responseDto = _mapper.Map<List<CartItemResponse>>(items);
 
-            // var itemDtos = new List<CartItemResponse>();
-            // foreach (var item in items)
-            // {
-            //     var product = await _context.Products.FindAsync(item.ProductId);
-            //     itemDtos.Add(new CartItemResponse
-            //     {
-            //         CartItemId = item.CartItemId,
-            //         CartId = item.CartId,
-            //         ProductId = item.ProductId,
-            //         ProductName = product?.Name ?? "Unknown",
-            //         Price = product?.Price ?? 0,
-            //         ImageUrl = product?.ImageUrl,
-            //         Quantity = item.Quantity,
-            //     });
-            // }
-
             var dto = new CartResponse
             {
                 CartId = cart.CartId,

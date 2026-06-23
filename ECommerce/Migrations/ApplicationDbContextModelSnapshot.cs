@@ -102,6 +102,8 @@ namespace ECommerce.Migrations
 
                     b.HasKey("CartItemId");
 
+                    b.HasIndex("ProductId");
+
                     b.ToTable("CartItem");
                 });
 
@@ -305,6 +307,17 @@ namespace ECommerce.Migrations
                         .IsUnique();
 
                     b.ToTable("User");
+                });
+
+            modelBuilder.Entity("ECommerce.Model.Entity.CartItem", b =>
+                {
+                    b.HasOne("ECommerce.Model.Entity.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
                 });
 
             modelBuilder.Entity("ECommerce.Model.Entity.Category", b =>

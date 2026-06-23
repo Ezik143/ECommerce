@@ -1,20 +1,33 @@
 import { useState, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { PencilIcon, TrashIcon, StarIcon } from '@heroicons/react/20/solid';
 import { useAddresses } from '../hooks/useAddresses';
 import { Modal } from '../components/ui/Modal';
 import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingSkeleton } from '../components/ui/LoadingSkeleton';
+import { FieldError } from '../components/ui/FieldError';
+import { addressSchema, type AddressFormData } from '../schemas/address';
 import type { CreateAddressRequest, UpdateAddressRequest } from '../types/api';
 
-const emptyForm: CreateAddressRequest = { street: '', city: '', state: '', postalCode: '', country: '' };
+const emptyForm: AddressFormData = { street: '', city: '', state: '', postalCode: '', country: '' };
 
 export const AddressesPage = () => {
   const { addresses, loading, error, fetchAddresses, createAddress, updateAddress, deleteAddress, setDefaultAddress } = useAddresses();
 
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [form, setForm] = useState<CreateAddressRequest>(emptyForm);
-  const [saving, setSaving] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<AddressFormData>({
+    resolver: zodResolver(addressSchema),
+    mode: 'onBlur',
+    defaultValues: emptyForm,
+  });
 
   useEffect(() => {
     fetchAddresses();
@@ -22,7 +35,7 @@ export const AddressesPage = () => {
 
   const openAdd = () => {
     setEditingId(null);
-    setForm(emptyForm);
+    reset(emptyForm);
     setShowModal(true);
   };
 
@@ -30,23 +43,21 @@ export const AddressesPage = () => {
     const addr = addresses.find((a) => a.addressId === id);
     if (!addr) return;
     setEditingId(id);
-    setForm({ street: addr.street, city: addr.city, state: addr.state, postalCode: addr.postalCode, country: addr.country });
+    reset({ street: addr.street, city: addr.city, state: addr.state, postalCode: addr.postalCode, country: addr.country });
     setShowModal(true);
   };
 
-  const handleSave = async () => {
+  const onSubmit = async (data: AddressFormData) => {
     try {
-      setSaving(true);
       if (editingId) {
-        await updateAddress(editingId, form as UpdateAddressRequest);
+        await updateAddress(editingId, data as UpdateAddressRequest);
       } else {
-        await createAddress(form);
+        await createAddress(data as CreateAddressRequest);
       }
       setShowModal(false);
+      reset(emptyForm);
     } catch {
       // error handled by hook
-    } finally {
-      setSaving(false);
     }
   };
 
@@ -70,7 +81,7 @@ export const AddressesPage = () => {
     return (
       <div style={{ textAlign: 'center', padding: '3rem 0' }}>
         <p style={{ color: 'var(--error)', marginBottom: '1rem' }}>{error}</p>
-        <button onClick={fetchAddresses} className="btn btn-primary">Retry</button>
+        <button type="button" onClick={fetchAddresses} className="btn btn-primary">Retry</button>
       </div>
     );
   }
@@ -79,7 +90,7 @@ export const AddressesPage = () => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <h1 className="page-title" style={{ marginBottom: 0 }}>My Addresses</h1>
-        <button onClick={openAdd} className="btn btn-primary btn-sm">Add Address</button>
+        <button type="button" onClick={openAdd} className="btn btn-primary btn-sm">Add Address</button>
       </div>
 
       {addresses.length === 0 ? (
@@ -91,8 +102,8 @@ export const AddressesPage = () => {
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                 <div style={{ flex: 1 }}>
                   <p style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{addr.street}</p>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{addr.city}, {addr.state} {addr.postalCode}</p>
-                  <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{addr.country}</p>
+                  <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-muted)' }}>{addr.city}, {addr.state} {addr.postalCode}</p>
+                  <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-muted)' }}>{addr.country}</p>
                 </div>
                 {addr.isDefault && (
                   <StarIcon style={{ width: '1.25rem', height: '1.25rem', color: 'var(--accent-amber)', flexShrink: 0 }} title="Default Address" />
@@ -101,14 +112,14 @@ export const AddressesPage = () => {
               <hr className="divider-light" style={{ margin: '1rem 0 0.75rem' }} />
               <div style={{ display: 'flex', gap: '0.75rem' }}>
                 {!addr.isDefault && (
-                  <button onClick={() => setDefaultAddress(addr.addressId)} style={{ fontSize: '0.8125rem', color: 'var(--accent-gold)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+                  <button type="button" onClick={() => setDefaultAddress(addr.addressId)} style={{ fontSize: 'var(--text-xs)', color: 'var(--accent-gold)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
                     Set as Default
                   </button>
                 )}
-                <button onClick={() => openEdit(addr.addressId)} style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <button type="button" onClick={() => openEdit(addr.addressId)} style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                   <PencilIcon style={{ width: '0.875rem', height: '0.875rem' }} /> Edit
                 </button>
-                <button onClick={() => handleDelete(addr.addressId)} style={{ fontSize: '0.8125rem', color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <button type="button" onClick={() => handleDelete(addr.addressId)} style={{ fontSize: 'var(--text-xs)', color: 'var(--error)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                   <TrashIcon style={{ width: '0.875rem', height: '0.875rem' }} /> Delete
                 </button>
               </div>
@@ -117,39 +128,44 @@ export const AddressesPage = () => {
         </div>
       )}
 
-      <Modal isOpen={showModal} onClose={() => setShowModal(false)} title={editingId ? 'Edit Address' : 'Add Address'}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <Modal isOpen={showModal} onClose={() => { setShowModal(false); reset(emptyForm); }} title={editingId ? 'Edit Address' : 'Add Address'}>
+        <form onSubmit={handleSubmit(onSubmit)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
-            <label className="label">Street</label>
-            <input type="text" value={form.street} onChange={(e) => setForm({ ...form, street: e.target.value })} className="input" />
+            <label className="label" htmlFor="street">Street</label>
+            <input id="street" type="text" className="input" {...register('street')} />
+            <FieldError name="street" errors={errors} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
-              <label className="label">City</label>
-              <input type="text" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} className="input" />
+              <label className="label" htmlFor="city">City</label>
+              <input id="city" type="text" className="input" {...register('city')} />
+              <FieldError name="city" errors={errors} />
             </div>
             <div>
-              <label className="label">State</label>
-              <input type="text" value={form.state} onChange={(e) => setForm({ ...form, state: e.target.value })} className="input" />
+              <label className="label" htmlFor="state">State</label>
+              <input id="state" type="text" className="input" {...register('state')} />
+              <FieldError name="state" errors={errors} />
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
-              <label className="label">Postal Code</label>
-              <input type="text" value={form.postalCode} onChange={(e) => setForm({ ...form, postalCode: e.target.value })} className="input" />
+              <label className="label" htmlFor="postalCode">Postal Code</label>
+              <input id="postalCode" type="text" className="input" {...register('postalCode')} />
+              <FieldError name="postalCode" errors={errors} />
             </div>
             <div>
-              <label className="label">Country</label>
-              <input type="text" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} className="input" />
+              <label className="label" htmlFor="country">Country</label>
+              <input id="country" type="text" className="input" {...register('country')} />
+              <FieldError name="country" errors={errors} />
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.5rem' }}>
-            <button onClick={() => setShowModal(false)} className="btn btn-secondary">Cancel</button>
-            <button onClick={handleSave} disabled={saving || !form.street || !form.city || !form.state || !form.postalCode || !form.country} className="btn btn-primary">
-              {saving ? 'Saving...' : 'Save'}
+            <button type="button" onClick={() => { setShowModal(false); reset(emptyForm); }} className="btn btn-secondary">Cancel</button>
+            <button type="submit" disabled={isSubmitting} className="btn btn-primary">
+              {isSubmitting ? 'Saving...' : 'Save'}
             </button>
           </div>
-        </div>
+        </form>
       </Modal>
     </div>
   );

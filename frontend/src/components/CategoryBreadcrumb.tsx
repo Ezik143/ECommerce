@@ -22,14 +22,14 @@ export const CategoryBreadcrumb = ({ categoryId, categoryName }: CategoryBreadcr
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center', fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+      <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center', fontSize: 'var(--text-caption)', color: 'var(--text-secondary)' }}>
         <span>Categories</span>
       </div>
     );
   }
 
   return (
-    <nav style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8125rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+    <nav style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: 'var(--text-caption)', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
       <Link to="/products" style={{ color: 'var(--text-muted)', textDecoration: 'none' }}>
         All Products
       </Link>

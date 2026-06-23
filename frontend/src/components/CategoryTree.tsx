@@ -20,19 +20,19 @@ const TreeNode = ({ category, activeId, depth }: { category: CategoryResponse; a
           paddingLeft: `${0.5 + depth * 1}rem`,
           borderRadius: 'var(--radius-sm)',
           cursor: 'pointer',
-          transition: 'all 0.15s',
-          background: isActive ? 'rgba(212,163,115,0.1)' : 'transparent',
+          transition: 'background 0.15s, color 0.15s',
+          background: isActive ? 'var(--color-brand-light)' : 'transparent',
           color: isActive ? 'var(--accent-gold)' : 'var(--text-secondary)',
           fontWeight: isActive ? 600 : 400,
-          fontSize: '0.875rem',
+          fontSize: 'var(--text-caption)',
         }}
-        onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+        onMouseEnter={(e) => { if (!isActive) e.currentTarget.style.background = 'rgba(128,128,128,0.06)'; }}
         onMouseLeave={(e) => { if (!isActive) e.currentTarget.style.background = 'transparent'; }}
       >
         {hasChildren ? (
-          <span onClick={() => setExpanded(!expanded)} style={{ display: 'flex', color: 'var(--text-muted)' }}>
+          <button type="button" onClick={() => setExpanded(!expanded)} style={{ display: 'flex', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
             {expanded ? <ChevronDownIcon style={{ width: '0.875rem', height: '0.875rem' }} /> : <ChevronRightIcon style={{ width: '0.875rem', height: '0.875rem' }} />}
-          </span>
+          </button>
         ) : (
           <span style={{ width: '0.875rem' }} />
         )}
@@ -73,7 +73,7 @@ export const CategoryTree = ({ activeCategoryId = null, collapsed = false }: Cat
 
   if (loading) {
     return (
-      <div style={{ padding: '0.5rem', color: 'var(--text-muted)', fontSize: '0.8125rem' }}>
+      <div style={{ padding: '0.5rem', color: 'var(--text-secondary)', fontSize: 'var(--text-caption)' }}>
         Loading categories...
       </div>
     );
@@ -83,7 +83,7 @@ export const CategoryTree = ({ activeCategoryId = null, collapsed = false }: Cat
 
   return (
     <nav style={{ display: 'flex', flexDirection: 'column' }}>
-      <div style={{ padding: '0.5rem 0.5rem 0.25rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <div style={{ padding: '0.5rem 0.5rem 0.25rem', fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         Categories
       </div>
       {categories.map((cat) => (

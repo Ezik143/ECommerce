@@ -3,31 +3,30 @@ import ReactDOM from 'react-dom/client';
 import { Auth0Provider } from '@auth0/auth0-react';
 import { BrowserRouter } from 'react-router-dom';
 import App from './App';
+import { getAuthConfig } from './services/authConfig';
 import './styles/index.css';
 
-const domain = import.meta.env.VITE_AUTH0_DOMAIN;
-const clientId = import.meta.env.VITE_AUTH0_CLIENT_ID;
-const audience = import.meta.env.VITE_AUTH0_AUDIENCE;
+async function initApp() {
+  const authConfig = await getAuthConfig();
 
-if (!domain || !clientId) {
-  throw new Error('Auth0 configuration missing. Check .env file.');
+  ReactDOM.createRoot(document.getElementById('root')!).render(
+    <React.StrictMode>
+      <Auth0Provider
+        domain={authConfig.domain}
+        clientId={authConfig.clientId}
+        authorizationParams={{
+          redirect_uri: window.location.origin,
+          audience: authConfig.audience,
+          scope: 'openid profile email',
+        }}
+        cacheLocation="localstorage"
+      >
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </Auth0Provider>
+    </React.StrictMode>
+  );
 }
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <Auth0Provider
-      domain={domain}
-      clientId={clientId}
-      authorizationParams={{
-        redirect_uri: window.location.origin,
-        audience: audience,
-        scope: 'openid profile email',
-      }}
-      cacheLocation="localstorage"
-    >
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
-    </Auth0Provider>
-  </React.StrictMode>
-);
+initApp();

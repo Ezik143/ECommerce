@@ -54,14 +54,14 @@ const ToastItem = ({ toast, onRemove }: { toast: Toast; onRemove: (id: string) =
     <div className={`toast ${toastClasses[toast.type]}`}>
       <Icon className="toast-icon" />
       <p className="toast-message">{toast.message}</p>
-      <button onClick={() => onRemove(toast.id)} className="toast-dismiss" aria-label="Dismiss">
+      <button type="button" onClick={() => onRemove(toast.id)} className="toast-dismiss" aria-label="Dismiss">
         <XMarkIcon style={{ width: '1rem', height: '1rem' }} />
       </button>
     </div>
   );
 };
 
-export const ToastContainer = ({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: string) => void }) => {
+const ToastContainer = ({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: string) => void }) => {
   if (toasts.length === 0) return null;
 
   const container = document.getElementById('toast-portal');

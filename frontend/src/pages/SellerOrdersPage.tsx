@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useReducer } from 'react';
 import { orderApi } from '../services/orderApi';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -9,24 +9,33 @@ import type { OrderResponse } from '../types/api';
 
 const STATUS_OPTIONS = ['PendingPayment', 'Paid', 'Shipped', 'Delivered', 'Cancelled'];
 
+interface OrdersState {
+  allOrders: OrderResponse[];
+  loading: boolean;
+}
+
+const initialOrdersState: OrdersState = { allOrders: [], loading: true };
+
+function ordersReducer(state: OrdersState, action: Partial<OrdersState>): OrdersState {
+  return { ...state, ...action };
+}
+
 export const SellerOrdersPage = () => {
   const { success, error: showError } = useToast();
 
-  const [allOrders, setAllOrders] = useState<OrderResponse[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [{ allOrders, loading }, dispatch] = useReducer(ordersReducer, initialOrdersState);
   const [selectedOrder, setSelectedOrder] = useState<OrderResponse | null>(null);
   const [statusFilter, setStatusFilter] = useState('All');
   const [updating, setUpdating] = useState<number | null>(null);
 
   const fetchOrders = useCallback(async () => {
     try {
-      setLoading(true);
+      dispatch({ loading: true });
       const data = await orderApi.getAllOrders();
-      setAllOrders(data);
+      dispatch({ allOrders: data, loading: false });
     } catch {
       showError('Failed to load orders');
-    } finally {
-      setLoading(false);
+      dispatch({ loading: false });
     }
   }, [showError]);
 
@@ -102,14 +111,14 @@ export const SellerOrdersPage = () => {
                 {filteredOrders.map((order) => (
                   <tr key={order.orderId} className="table-row">
                     <td>
-                      <button onClick={() => setSelectedOrder(order)} style={{ fontSize: '0.875rem', color: 'var(--accent-gold)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
+                      <button type="button" onClick={() => setSelectedOrder(order)} style={{ fontSize: 'var(--text-caption)', color: 'var(--accent-gold)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontWeight: 500 }}>
                         #{order.orderId}
                       </button>
                     </td>
-                    <td style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>User #{order.userId}</td>
-                    <td style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{new Date(order.createdAt).toLocaleDateString()}</td>
-                    <td style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{order.items.length}</td>
-                    <td style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--accent-gold)' }}>${order.totalAmount.toFixed(2)}</td>
+                    <td style={{ fontSize: 'var(--text-caption)', color: 'var(--text-primary)' }}>User #{order.userId}</td>
+                    <td style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{new Date(order.createdAt).toLocaleDateString()}</td>
+                    <td style={{ fontSize: 'var(--text-caption)', color: 'var(--text-muted)' }}>{order.items.length}</td>
+                    <td style={{ fontSize: 'var(--text-caption)', fontWeight: 500, color: 'var(--accent-gold)' }}>${order.totalAmount.toFixed(2)}</td>
                     <td><StatusBadge status={order.status} /></td>
                     <td>
                       <select
@@ -117,7 +126,7 @@ export const SellerOrdersPage = () => {
                         onChange={(e) => handleStatusUpdate(order.orderId, e.target.value)}
                         disabled={updating === order.orderId}
                         className="input"
-                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', minWidth: '7rem' }}
+                        style={{ padding: '0.25rem 0.5rem', fontSize: 'var(--text-xs)', minWidth: '7rem' }}
                       >
                         {STATUS_OPTIONS.map((s) => (
                           <option key={s} value={s}>{s}</option>
@@ -135,7 +144,7 @@ export const SellerOrdersPage = () => {
       <Modal isOpen={!!selectedOrder} onClose={() => setSelectedOrder(null)} title={`Order #${selectedOrder?.orderId}`} size="lg">
         {selectedOrder && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: '0.875rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', fontSize: 'var(--text-caption)' }}>
               <div>
                 <span className="label">Status</span>
                 <StatusBadge status={selectedOrder.status} />
@@ -150,7 +159,7 @@ export const SellerOrdersPage = () => {
               </div>
               <div>
                 <span className="label">Shipping</span>
-                <p style={{ color: 'var(--text-primary)', fontSize: '0.8125rem' }}>{selectedOrder.shippingAddress}</p>
+                <p style={{ color: 'var(--text-primary)', fontSize: 'var(--text-caption)' }}>{selectedOrder.shippingAddress}</p>
               </div>
             </div>
 
@@ -158,7 +167,7 @@ export const SellerOrdersPage = () => {
               <span className="label" style={{ marginBottom: '0.5rem', display: 'block' }}>Items in this order</span>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {selectedOrder.items.map((item) => (
-                  <div key={item.orderItemId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem', padding: '0.5rem 0', borderBottom: '1px solid var(--border-light)' }}>
+                  <div key={item.orderItemId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-caption)', padding: '0.5rem 0', borderBottom: '1px solid var(--border-light)' }}>
                     <span style={{ color: 'var(--text-primary)' }}>{item.productName} x{item.quantity}</span>
                     <span style={{ fontWeight: 500, color: 'var(--accent-gold)' }}>${(item.price * item.quantity).toFixed(2)}</span>
                   </div>
@@ -167,7 +176,7 @@ export const SellerOrdersPage = () => {
             </div>
 
             <hr className="divider" />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-heading)', fontSize: '1.125rem', color: 'var(--accent-gold)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-heading)', fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--accent-gold)' }}>
               <span>Total</span>
               <span>${selectedOrder.totalAmount.toFixed(2)}</span>
             </div>
@@ -176,11 +185,11 @@ export const SellerOrdersPage = () => {
               <span className="label" style={{ marginBottom: '0.5rem', display: 'block' }}>Update Status</span>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 {STATUS_OPTIONS.map((s) => (
-                  <button
+                  <button type="button"
                     key={s}
                     onClick={() => handleStatusUpdate(selectedOrder.orderId, s)}
                     disabled={updating === selectedOrder.orderId || s === selectedOrder.status}
-                    className={`btn btn-sm ${s === selectedOrder.status ? 'btn-secondary' : 'btn-primary'}`}
+                    className={`btn btn-sm ${s === selectedOrder.status ? 'btn-secondary' : 'btn-ghost'}`}
                     style={s === selectedOrder.status ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
                   >
                     {updating === selectedOrder.orderId ? '...' : s}

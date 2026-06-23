@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect, useRef, useMemo, type ReactNode } from 'react';
 import { cartApi } from '../services/cartApi';
 import { productApi } from '../services/productApi';
 import { useToast } from '../components/ui/Toast';
@@ -84,6 +84,21 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [cart, fetchCart, success, showError]);
 
+  const removeItem = useCallback(async (cartItemId: number) => {
+    try {
+      await getTokenRef.current();
+      setLoading(true);
+      await cartApi.deleteCartItem(cartItemId);
+      success('Item removed');
+      await fetchCart();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to remove item';
+      showError(message);
+    } finally {
+      setLoading(false);
+    }
+  }, [fetchCart, success, showError]);
+
   const updateQuantity = useCallback(async (cartItemId: number, quantity: number) => {
     if (quantity < 1) {
       await removeItem(cartItemId);
@@ -102,22 +117,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     } finally {
       setLoading(false);
     }
-  }, [fetchCart, success, showError]);
-
-  const removeItem = useCallback(async (cartItemId: number) => {
-    try {
-      await getTokenRef.current();
-      setLoading(true);
-      await cartApi.deleteCartItem(cartItemId);
-      success('Item removed');
-      await fetchCart();
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to remove item';
-      showError(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchCart, success, showError]);
+  }, [fetchCart, success, showError, removeItem]);
 
   const clearCart = useCallback(async () => {
     if (!cart) return;
@@ -139,10 +139,10 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   const totalAmount = cart?.totalAmount ?? 0;
 
   return (
-    <CartContext.Provider value={{
+    <CartContext.Provider value={useMemo(() => ({
       cart, loading, error, fetchCart, addToCart, updateQuantity, removeItem, clearCart,
       itemCount, totalAmount,
-    }}>
+    }), [cart, loading, error, fetchCart, addToCart, updateQuantity, removeItem, clearCart, itemCount, totalAmount])}>
       {children}
     </CartContext.Provider>
   );

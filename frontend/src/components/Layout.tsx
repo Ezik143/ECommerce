@@ -6,7 +6,28 @@ import { Fragment } from 'react';
 import { useAuth } from '../hooks/useAuth0';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { useCart } from '../hooks/useCart';
+import { ThemeToggle } from './ui/ThemeToggle';
 import LoginButton from './LoginButton';
+
+const NavLink = ({ to, label, onClick }: { to: string; label: string; onClick?: () => void }) => {
+  const location = useLocation();
+  const isActive = location.pathname === to;
+  return (
+    <Link
+      to={to}
+      className={`nav-link ${isActive ? 'active' : ''}`}
+      onClick={onClick}
+    >
+      {label}
+    </Link>
+  );
+};
+
+const sellerLinks = [
+  { to: '/seller/dashboard', label: 'Dashboard' },
+  { to: '/seller/products', label: 'My Products' },
+  { to: '/seller/orders', label: 'My Orders' },
+];
 
 const Layout = () => {
   const { isAuthenticated } = useAuth();
@@ -22,32 +43,13 @@ const Layout = () => {
 
   const customerLinks = [
     { to: '/products', label: 'Products' },
-    { to: '/products', label: 'Categories' },
+    { to: '/categories', label: 'Categories' },
     { to: '/cart', label: `Cart (${itemCount})` },
     { to: '/orders', label: 'Orders' },
     { to: '/addresses', label: 'Addresses' },
   ];
 
-  const sellerLinks = [
-    { to: '/seller/dashboard', label: 'Dashboard' },
-    { to: '/seller/products', label: 'My Products' },
-    { to: '/seller/orders', label: 'My Orders' },
-  ];
-
   const navLinks = isCustomer ? customerLinks : isSeller ? sellerLinks : [];
-
-  const NavLink = ({ to, label }: { to: string; label: string }) => {
-    const isActive = location.pathname === to;
-    return (
-      <Link
-        to={to}
-        className={`nav-link ${isActive ? 'active' : ''}`}
-        onClick={() => setMobileMenuOpen(false)}
-      >
-        {label}
-      </Link>
-    );
-  };
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -55,7 +57,7 @@ const Layout = () => {
         <header style={{ position: 'sticky', top: 0, zIndex: 50, backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-light)' }}>
           <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '4rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '2rem' }}>
-              <Link to="/dashboard" style={{ fontFamily: 'var(--font-heading)', fontSize: '1.375rem', color: 'var(--accent-gold)', textDecoration: 'none', flexShrink: 0 }}>
+              <Link to="/dashboard" style={{ fontFamily: 'var(--font-heading)', fontSize: 'var(--text-heading)', fontWeight: 700, color: 'var(--accent-gold)', textDecoration: 'none', flexShrink: 0 }}>
                 Kintsugi
               </Link>
               {isAuthenticated && (
@@ -68,6 +70,7 @@ const Layout = () => {
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <ThemeToggle />
               {isAuthenticated && (
                 <>
                   {isCustomer && (
@@ -77,8 +80,8 @@ const Layout = () => {
                       {itemCount > 0 && (
                         <span style={{
                           position: 'absolute', top: '-0.5rem', right: '-0.5rem',
-                          backgroundColor: 'var(--accent-gold)', color: '#1C1817',
-                          fontSize: '0.6875rem', fontWeight: 600,
+                          backgroundColor: 'var(--accent-gold)', color: 'var(--color-canvas)',
+                          fontSize: '0.75rem', fontWeight: 600,
                           width: '1.25rem', height: '1.25rem',
                           display: 'flex', alignItems: 'center', justifyContent: 'center',
                           borderRadius: '50%'
@@ -91,11 +94,11 @@ const Layout = () => {
                   <Menu as="div" style={{ position: 'relative', display: 'none' }} className="desktop-menu">
                     <Menu.Button style={{
                       display: 'flex', alignItems: 'center', gap: '0.375rem',
-                      color: 'var(--text-secondary)', fontSize: '0.875rem',
+                      color: 'var(--text-secondary)', fontSize: 'var(--text-caption)',
                       fontFamily: 'var(--font-body)', fontWeight: 500,
                       background: 'none', border: 'none', cursor: 'pointer',
                       padding: '0.375rem 0.5rem', borderRadius: 'var(--radius-sm)',
-                      transition: 'all 0.2s'
+                      transition: 'color 0.2s, background 0.2s'
                     }}>
                       <span style={{ color: 'var(--accent-gold)', fontFamily: 'var(--font-body)' }}>{profile?.name || profile?.email}</span>
                       <ChevronDownIcon style={{ width: '1rem', height: '1rem' }} />
@@ -117,18 +120,18 @@ const Layout = () => {
                         padding: '0.25rem 0', outline: 'none'
                       }}>
                         <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--border-light)' }}>
-                          <p style={{ fontSize: '0.8125rem', color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-primary)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {profile?.name || profile?.email}
                           </p>
-                          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{profile?.role}</p>
+                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{profile?.role}</p>
                         </div>
                         <Menu.Item>
                           {({ active }) => (
                             <Link to="/dashboard" style={{
-                              display: 'block', padding: '0.5rem 1rem', fontSize: '0.875rem',
+                              display: 'block', padding: '0.5rem 1rem', fontSize: 'var(--text-caption)',
                               color: active ? 'var(--accent-gold)' : 'var(--text-secondary)',
-                              background: active ? 'rgba(212,163,115,0.06)' : 'transparent',
-                              textDecoration: 'none', transition: 'all 0.15s'
+                              background: active ? 'var(--color-brand-light)' : 'transparent',
+                              textDecoration: 'none', transition: 'color 0.15s, background 0.15s'
                             }}>
                               Dashboard
                             </Link>
@@ -145,6 +148,7 @@ const Layout = () => {
                       display: 'block', background: 'none', border: 'none',
                       color: 'var(--text-secondary)', cursor: 'pointer'
                     }}
+                    type="button"
                     className="mobile-menu-btn"
                     onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                     aria-label="Toggle menu"
@@ -160,12 +164,15 @@ const Layout = () => {
             <div style={{ borderTop: '1px solid var(--border-light)', background: 'var(--bg-card)' }}>
               <div style={{ padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {navLinks.map((link) => (
-                  <NavLink key={link.label} {...link} />
+                  <NavLink key={link.label} {...link} onClick={() => setMobileMenuOpen(false)} />
                 ))}
                 <Link to="/dashboard" className="nav-link" onClick={() => setMobileMenuOpen(false)}>
                   Dashboard
                 </Link>
-                <LoginButton />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <LoginButton />
+                  <ThemeToggle />
+                </div>
               </div>
             </div>
           )}
@@ -175,7 +182,7 @@ const Layout = () => {
         <Outlet />
       </main>
       <footer className="footer">
-        Kintsugi — curated commerce
+        Kintsugi · curated commerce
       </footer>
 
       <style>{`

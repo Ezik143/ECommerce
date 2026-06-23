@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useReducer } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { categoryApi } from '../services/categoryApi';
 import { productApi } from '../services/productApi';
@@ -11,21 +11,33 @@ import { CategoryBreadcrumb } from '../components/CategoryBreadcrumb';
 import { CategoryTree } from '../components/CategoryTree';
 import type { CategoryResponse, ProductResponse } from '../types/api';
 
+interface CategoryState {
+  category: CategoryResponse | null;
+  subcategories: CategoryResponse[];
+  products: ProductResponse[];
+  loading: boolean;
+}
+
+const initialCategoryState: CategoryState = {
+  category: null, subcategories: [], products: [], loading: true,
+};
+
+function categoryReducer(state: CategoryState, action: Partial<CategoryState>): CategoryState {
+  return { ...state, ...action };
+}
+
 export const CategoryPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const { profile } = useUserProfile();
   const { addToCart, loading: cartLoading } = useCart();
 
-  const [category, setCategory] = useState<CategoryResponse | null>(null);
-  const [subcategories, setSubcategories] = useState<CategoryResponse[]>([]);
-  const [products, setProducts] = useState<ProductResponse[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectedSubcategory, setSelectedSubcategory] = useState<number | null>(null);
+  const [{ category, subcategories, products, loading }, dispatch] = useReducer(categoryReducer, initialCategoryState);
 
   const fetchData = useCallback(async () => {
     if (!slug) return;
     try {
-      setLoading(true);
+      dispatch({ loading: true });
       const tree = await categoryApi.getTree();
       const findCat = (cats: CategoryResponse[]): CategoryResponse | null => {
         for (const c of cats) {
@@ -39,20 +51,15 @@ export const CategoryPage = () => {
       };
       const found = findCat(tree);
       if (!found) {
-        setLoading(false);
+        dispatch({ loading: false });
         return;
       }
-      setCategory(found);
 
       const children = await categoryApi.getChildren(found.categoryId);
-      setSubcategories(children);
-
       const prods = await productApi.getAll(found.categoryId);
-      setProducts(prods);
+      dispatch({ category: found, subcategories: children, products: prods, loading: false });
     } catch {
-      // ignore
-    } finally {
-      setLoading(false);
+      dispatch({ loading: false });
     }
   }, [slug]);
 
@@ -60,13 +67,16 @@ export const CategoryPage = () => {
     fetchData();
   }, [fetchData]);
 
-  useEffect(() => {
-    if (selectedSubcategory !== null) {
-      productApi.getAll(selectedSubcategory).then(setProducts).catch(() => {});
+  const handleSubcategoryClick = useCallback(async (subcategoryId: number | null) => {
+    setSelectedSubcategory(subcategoryId);
+    if (subcategoryId !== null) {
+      const prods = await productApi.getAll(subcategoryId);
+      dispatch({ products: prods });
     } else if (category) {
-      productApi.getAll(category.categoryId).then(setProducts).catch(() => {});
+      const prods = await productApi.getAll(category.categoryId);
+      dispatch({ products: prods });
     }
-  }, [selectedSubcategory, category]);
+  }, [category]);
 
   const isCustomer = profile?.role === 'Customer';
 
@@ -104,21 +114,21 @@ export const CategoryPage = () => {
         <CategoryBreadcrumb categoryId={category.categoryId} categoryName={category.name} />
         <h1 className="page-title" style={{ marginTop: '0.5rem' }}>{category.name}</h1>
         {category.description && (
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>{category.description}</p>
+          <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-caption)', marginBottom: '1.5rem' }}>{category.description}</p>
         )}
 
         {subcategories.length > 0 && (
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
-            <button
-              onClick={() => setSelectedSubcategory(null)}
+            <button type="button"
+              onClick={() => handleSubcategoryClick(null)}
               className={`btn btn-sm ${selectedSubcategory === null ? 'btn-primary' : 'btn-secondary'}`}
             >
               All
             </button>
             {subcategories.map((sub) => (
-              <button
+              <button type="button"
                 key={sub.categoryId}
-                onClick={() => setSelectedSubcategory(sub.categoryId)}
+                onClick={() => handleSubcategoryClick(sub.categoryId)}
                 className={`btn btn-sm ${selectedSubcategory === sub.categoryId ? 'btn-primary' : 'btn-secondary'}`}
               >
                 {sub.name}

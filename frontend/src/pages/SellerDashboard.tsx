@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useReducer } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { productApi } from '../services/productApi';
 import { orderApi } from '../services/orderApi';
@@ -7,27 +7,34 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { LoadingSkeleton } from '../components/ui/LoadingSkeleton';
 import type { ProductResponse, OrderResponse } from '../types/api';
 
+interface DashData {
+  products: ProductResponse[];
+  orders: OrderResponse[];
+  loading: boolean;
+}
+
+const initialDashData: DashData = { products: [], orders: [], loading: true };
+
+function dashReducer(state: DashData, action: Partial<DashData>): DashData {
+  return { ...state, ...action };
+}
+
 export const SellerDashboard = () => {
   const navigate = useNavigate();
   const { profile } = useUserProfile();
 
-  const [products, setProducts] = useState<ProductResponse[]>([]);
-  const [orders, setOrders] = useState<OrderResponse[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [{ products, orders, loading }, dispatch] = useReducer(dashReducer, initialDashData);
 
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
+      dispatch({ loading: true });
       const [allProducts, allOrders] = await Promise.all([
         productApi.getAll(),
         orderApi.getAllOrders(),
       ]);
-      setProducts(allProducts.filter((p) => p.sellerId === profile?.localUserId));
-      setOrders(allOrders);
+      dispatch({ products: allProducts.filter((p) => p.sellerId === profile?.localUserId), orders: allOrders, loading: false });
     } catch {
-      // silent
-    } finally {
-      setLoading(false);
+      dispatch({ loading: false });
     }
   }, [profile?.localUserId]);
 
@@ -85,13 +92,13 @@ export const SellerDashboard = () => {
 
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.125rem', color: 'var(--text-primary)' }}>Quick Actions</h2>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text-primary)' }}>Quick Actions</h2>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <button onClick={() => navigate('/seller/products')} className="btn btn-primary">
+          <button type="button" onClick={() => navigate('/seller/products')} className="btn btn-primary">
             Manage Products
           </button>
-          <button onClick={() => navigate('/seller/orders')} className="btn btn-secondary">
+          <button type="button" onClick={() => navigate('/seller/orders')} className="btn btn-secondary">
             View All Orders
           </button>
         </div>
@@ -99,13 +106,13 @@ export const SellerDashboard = () => {
 
       <div className="card">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.125rem', color: 'var(--text-primary)' }}>Recent Orders</h2>
-          <button onClick={() => navigate('/seller/orders')} style={{ color: 'var(--accent-gold)', fontSize: '0.875rem', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text-primary)' }}>Recent Orders</h2>
+          <button type="button" onClick={() => navigate('/seller/orders')} style={{ color: 'var(--accent-gold)', fontSize: 'var(--text-caption)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
             View All
           </button>
         </div>
         {recentOrders.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>No orders yet</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-caption)' }}>No orders yet</p>
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -121,10 +128,10 @@ export const SellerDashboard = () => {
               <tbody>
                 {recentOrders.map((order) => (
                   <tr key={order.orderId} className="table-row">
-                    <td style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--text-primary)' }}>#{order.orderId}</td>
-                    <td style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{new Date(order.createdAt).toLocaleDateString()}</td>
-                    <td style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>{order.items.length}</td>
-                    <td style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--accent-gold)' }}>${order.totalAmount.toFixed(2)}</td>
+                    <td style={{ fontSize: 'var(--text-caption)', fontWeight: 500, color: 'var(--text-primary)' }}>#{order.orderId}</td>
+                    <td style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>{new Date(order.createdAt).toLocaleDateString()}</td>
+                    <td style={{ fontSize: 'var(--text-caption)', color: 'var(--text-muted)' }}>{order.items.length}</td>
+                    <td style={{ fontSize: 'var(--text-caption)', fontWeight: 500, color: 'var(--accent-gold)' }}>${order.totalAmount.toFixed(2)}</td>
                     <td><StatusBadge status={order.status} /></td>
                   </tr>
                 ))}

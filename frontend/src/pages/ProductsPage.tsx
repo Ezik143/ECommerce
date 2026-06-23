@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useReducer } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { MagnifyingGlassIcon, XMarkIcon } from '@heroicons/react/20/solid';
 import { productApi } from '../services/productApi';
 import { useCart } from '../hooks/useCart';
@@ -9,27 +10,42 @@ import { LoadingSkeleton } from '../components/ui/LoadingSkeleton';
 import { CategoryTree } from '../components/CategoryTree';
 import type { ProductResponse } from '../types/api';
 
+interface ProductListState {
+  products: ProductResponse[];
+  loading: boolean;
+  error: string | null;
+}
+
+const initialProductListState: ProductListState = {
+  products: [], loading: true, error: null,
+};
+
+function productListReducer(state: ProductListState, action: Partial<ProductListState>): ProductListState {
+  return { ...state, ...action };
+}
+
 export const ProductsPage = () => {
   const { profile } = useUserProfile();
   const { addToCart, loading: cartLoading } = useCart();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [products, setProducts] = useState<ProductResponse[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [{ products, loading, error }, dispatch] = useReducer(productListReducer, initialProductListState);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(
+    () => {
+      const catId = searchParams.get('categoryId');
+      return catId ? parseInt(catId) : null;
+    }
+  );
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
   const fetchData = useCallback(async () => {
     try {
-      setLoading(true);
-      setError(null);
+      dispatch({ loading: true, error: null });
       const productsData = await productApi.getAll(selectedCategory ?? undefined);
-      setProducts(productsData);
+      dispatch({ products: productsData, loading: false });
     } catch {
-      setError('Failed to load products');
-    } finally {
-      setLoading(false);
+      dispatch({ error: 'Failed to load products', loading: false });
     }
   }, [selectedCategory]);
 
@@ -53,9 +69,18 @@ export const ProductsPage = () => {
 
   const isCustomer = profile?.role === 'Customer';
 
+  const handleCategoryChange = (categoryId: number | null) => {
+    setSelectedCategory(categoryId);
+    if (categoryId) {
+      setSearchParams({ categoryId: String(categoryId) });
+    } else {
+      setSearchParams({});
+    }
+  };
+
   const clearFilters = () => {
     setSearchQuery('');
-    setSelectedCategory(null);
+    handleCategoryChange(null);
   };
 
   const hasActiveFilters = searchQuery || selectedCategory !== null;
@@ -82,7 +107,7 @@ export const ProductsPage = () => {
     return (
       <div style={{ textAlign: 'center', padding: '3rem 0' }}>
         <p style={{ color: 'var(--error)', marginBottom: '1rem' }}>{error}</p>
-        <button onClick={fetchData} className="btn btn-primary">Retry</button>
+        <button type="button" onClick={fetchData} className="btn btn-primary">Retry</button>
       </div>
     );
   }
@@ -103,11 +128,12 @@ export const ProductsPage = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search products..."
+                aria-label="Search products"
                 className="input"
                 style={{ paddingLeft: '2.5rem' }}
               />
               {searchQuery && (
-                <button
+                <button type="button"
                   onClick={() => setSearchQuery('')}
                   style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer' }}
                 >
@@ -117,7 +143,7 @@ export const ProductsPage = () => {
             </div>
             {hasActiveFilters && (
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button onClick={clearFilters} className="btn btn-secondary btn-sm">
+                <button type="button" onClick={clearFilters} className="btn btn-secondary btn-sm">
                   Clear Filters
                 </button>
               </div>

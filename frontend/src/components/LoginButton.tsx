@@ -5,7 +5,7 @@ const LoginButton = () => {
 
   if (isAuthenticated) {
     return (
-      <button
+      <button type="button"
         onClick={() => logout({ logoutParams: { returnTo: window.location.origin } })}
         className="btn btn-ghost btn-sm"
         style={{ width: '100%', justifyContent: 'flex-start' }}
@@ -16,7 +16,7 @@ const LoginButton = () => {
   }
 
   return (
-    <button
+    <button type="button"
       onClick={() => loginWithRedirect()}
       className="btn btn-primary btn-sm"
     >

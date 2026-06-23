@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useReducer } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import { CheckIcon, ChevronLeftIcon, ChevronRightIcon } from '@heroicons/react/20/solid';
 import { useCart } from '../hooks/useCart';
 import { useOrders } from '../hooks/useOrders';
@@ -7,7 +9,8 @@ import { useAddresses } from '../hooks/useAddresses';
 import { Modal } from '../components/ui/Modal';
 import { EmptyState } from '../components/ui/EmptyState';
 import { LoadingSkeleton } from '../components/ui/LoadingSkeleton';
-import type { CreateAddressRequest } from '../types/api';
+import { FieldError } from '../components/ui/FieldError';
+import { addressSchema, type AddressFormData } from '../schemas/address';
 
 const PAYMENT_METHODS = [
   { value: 'CreditCard', label: 'Credit Card', description: 'Pay with Visa, Mastercard, or Amex' },
@@ -19,21 +22,53 @@ const PAYMENT_METHODS = [
 type PaymentMethod = typeof PAYMENT_METHODS[number]['value'];
 type Step = 'shipping' | 'payment' | 'review';
 
+const emptyAddress: AddressFormData = { street: '', city: '', state: '', postalCode: '', country: '' };
+
+const steps: { key: Step; label: string }[] = [
+  { key: 'shipping', label: 'Shipping' },
+  { key: 'payment', label: 'Payment' },
+  { key: 'review', label: 'Review' },
+];
+
+interface CheckoutState {
+  currentStep: Step;
+  selectedAddressId: number | null;
+  paymentMethod: PaymentMethod;
+  showAddressModal: boolean;
+  orderSuccess: boolean;
+  error: string | null;
+}
+
+const initialCheckoutState: CheckoutState = {
+  currentStep: 'shipping',
+  selectedAddressId: null,
+  paymentMethod: 'CreditCard',
+  showAddressModal: false,
+  orderSuccess: false,
+  error: null,
+};
+
+function checkoutReducer(state: CheckoutState, action: Partial<CheckoutState>): CheckoutState {
+  return { ...state, ...action };
+}
+
 export const CheckoutPage = () => {
   const navigate = useNavigate();
   const { cart, loading: cartLoading, fetchCart } = useCart();
   const { createOrder, loading: orderLoading } = useOrders();
   const { addresses, loading: addressLoading, fetchAddresses, createAddress } = useAddresses();
 
-  const [currentStep, setCurrentStep] = useState<Step>('shipping');
-  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CreditCard');
-  const [showAddressModal, setShowAddressModal] = useState(false);
-  const [orderSuccess, setOrderSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [{ currentStep, selectedAddressId, paymentMethod, showAddressModal, orderSuccess, error }, dispatch] = useReducer(checkoutReducer, initialCheckoutState);
 
-  const [newAddress, setNewAddress] = useState<CreateAddressRequest>({
-    street: '', city: '', state: '', postalCode: '', country: '',
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<AddressFormData>({
+    resolver: zodResolver(addressSchema),
+    mode: 'onBlur',
+    defaultValues: emptyAddress,
   });
 
   useEffect(() => {
@@ -41,11 +76,8 @@ export const CheckoutPage = () => {
     fetchAddresses();
   }, [fetchCart, fetchAddresses]);
 
-  useEffect(() => {
-    if (addresses.length > 0 && !selectedAddressId) {
-      setSelectedAddressId(addresses.find((a) => a.isDefault)?.addressId || addresses[0].addressId);
-    }
-  }, [addresses, selectedAddressId]);
+  const defaultAddressId = addresses.find((a) => a.isDefault)?.addressId ?? addresses[0]?.addressId ?? null;
+  const effectiveAddressId = selectedAddressId ?? defaultAddressId;
 
   useEffect(() => {
     if (!cartLoading && cart && cart.items.length === 0) {
@@ -53,35 +85,34 @@ export const CheckoutPage = () => {
     }
   }, [cart, cartLoading, navigate]);
 
-  const handleAddAddress = async () => {
+  const onAddAddress = async (data: AddressFormData) => {
     try {
-      setError(null);
-      const addr = await createAddress(newAddress);
-      setSelectedAddressId(addr.addressId);
-      setShowAddressModal(false);
-      setNewAddress({ street: '', city: '', state: '', postalCode: '', country: '' });
+      dispatch({ error: null });
+      const addr = await createAddress(data);
+      dispatch({ selectedAddressId: addr.addressId, showAddressModal: false });
+      reset(emptyAddress);
     } catch {
-      setError('Failed to add address');
+      dispatch({ error: 'Failed to add address' });
     }
   };
 
   const handlePlaceOrder = async () => {
-    if (!selectedAddressId) {
-      setError('Please select a shipping address');
+    if (!effectiveAddressId) {
+      dispatch({ error: 'Please select a shipping address' });
       return;
     }
     try {
-      setError(null);
-      await createOrder({ paymentMethod, shippingAddressId: selectedAddressId });
-      setOrderSuccess(true);
+      dispatch({ error: null });
+      await createOrder({ paymentMethod, shippingAddressId: effectiveAddressId });
+      dispatch({ orderSuccess: true });
     } catch {
-      setError('Failed to place order');
+      dispatch({ error: 'Failed to place order' });
     }
   };
 
-  const goToStep = (step: Step) => setCurrentStep(step);
+  const goToStep = (step: Step) => dispatch({ currentStep: step });
 
-  const selectedAddress = addresses.find((a) => a.addressId === selectedAddressId);
+  const selectedAddress = addresses.find((a) => a.addressId === effectiveAddressId);
 
   if (orderSuccess) {
     return (
@@ -89,11 +120,11 @@ export const CheckoutPage = () => {
         <div style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '5rem', height: '5rem', borderRadius: '50%', background: 'var(--success-bg)', color: 'var(--success)', marginBottom: '1.5rem' }}>
           <CheckIcon style={{ width: '2.5rem', height: '2.5rem' }} />
         </div>
-        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.5rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Order Placed Successfully!</h2>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: '0.9375rem' }}>Thank you for your purchase. You'll receive a confirmation shortly.</p>
+        <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Order Placed Successfully!</h2>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '1.5rem', fontSize: 'var(--text-body)' }}>Thank you for your purchase. You'll receive a confirmation shortly.</p>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-          <button onClick={() => navigate('/orders')} className="btn btn-primary">View Orders</button>
-          <button onClick={() => navigate('/products')} className="btn btn-secondary">Continue Shopping</button>
+          <button type="button" onClick={() => navigate('/orders')} className="btn btn-primary">View Orders</button>
+          <button type="button" onClick={() => navigate('/products')} className="btn btn-secondary">Continue Shopping</button>
         </div>
       </div>
     );
@@ -108,12 +139,6 @@ export const CheckoutPage = () => {
     );
   }
 
-  const steps: { key: Step; label: string }[] = [
-    { key: 'shipping', label: 'Shipping' },
-    { key: 'payment', label: 'Payment' },
-    { key: 'review', label: 'Review' },
-  ];
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <h1 className="page-title">Checkout</h1>
@@ -121,7 +146,7 @@ export const CheckoutPage = () => {
       <div className="step-indicator" style={{ marginBottom: '1.5rem' }}>
         {steps.map((s, i) => (
           <div key={s.key} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <button
+            <button type="button"
               onClick={() => goToStep(s.key)}
               className={`step ${currentStep === s.key ? 'step-active' : 'step-inactive'}`}
             >
@@ -133,16 +158,16 @@ export const CheckoutPage = () => {
       </div>
 
       {error && (
-        <div style={{ padding: '0.75rem 1rem', background: 'var(--error-bg)', border: '1px solid rgba(197,90,90,0.3)', borderRadius: 'var(--radius-sm)', color: 'var(--error)', fontSize: '0.875rem' }}>{error}</div>
+        <div style={{ padding: '0.75rem 1rem', background: 'var(--error-bg)', border: '1px solid rgba(197,90,90,0.3)', borderRadius: 'var(--radius-sm)', color: 'var(--error)', fontSize: 'var(--text-caption)' }}>{error}</div>
       )}
 
       {currentStep === 'shipping' && (
         <div className="card">
-          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.125rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>Shipping Address</h2>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '1rem' }}>Shipping Address</h2>
           {addressLoading ? (
             <LoadingSkeleton variant="card" />
           ) : addresses.length === 0 ? (
-            <EmptyState type="addresses" onAction={() => setShowAddressModal(true)} />
+            <EmptyState type="addresses" onAction={() => dispatch({ showAddressModal: true })} />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {addresses.map((addr) => (
@@ -155,23 +180,23 @@ export const CheckoutPage = () => {
                     name="address"
                     value={addr.addressId}
                     checked={selectedAddressId === addr.addressId}
-                    onChange={() => setSelectedAddressId(addr.addressId)}
+                    onChange={() => dispatch({ selectedAddressId: addr.addressId })}
                   />
                   <div>
-                    <p style={{ color: 'var(--text-primary)', fontSize: '0.875rem' }}>{addr.street}</p>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>{addr.city}, {addr.state} {addr.postalCode}</p>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>{addr.country}</p>
+                    <p style={{ color: 'var(--text-primary)', fontSize: 'var(--text-caption)' }}>{addr.street}</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>{addr.city}, {addr.state} {addr.postalCode}</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>{addr.country}</p>
                     {addr.isDefault && <span className="badge badge-default" style={{ marginTop: '0.375rem' }}>Default</span>}
                   </div>
                 </label>
               ))}
-              <button onClick={() => setShowAddressModal(true)} className="btn btn-secondary btn-sm" style={{ alignSelf: 'flex-start' }}>
+              <button type="button" onClick={() => dispatch({ showAddressModal: true })} className="btn btn-secondary btn-sm" style={{ alignSelf: 'flex-start' }}>
                 Add New Address
               </button>
             </div>
           )}
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-            <button onClick={() => goToStep('payment')} disabled={!selectedAddressId} className="btn btn-primary">
+            <button type="button" onClick={() => goToStep('payment')} disabled={!selectedAddressId} className="btn btn-primary">
               Continue <ChevronRightIcon style={{ width: '1.25rem', height: '1.25rem' }} />
             </button>
           </div>
@@ -180,7 +205,7 @@ export const CheckoutPage = () => {
 
       {currentStep === 'payment' && (
         <div className="card">
-          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.125rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>Payment Method</h2>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '1rem' }}>Payment Method</h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             {PAYMENT_METHODS.map((pm) => (
               <label
@@ -192,20 +217,20 @@ export const CheckoutPage = () => {
                   name="payment"
                   value={pm.value}
                   checked={paymentMethod === pm.value}
-                  onChange={() => setPaymentMethod(pm.value)}
+                  onChange={() => dispatch({ paymentMethod: pm.value })}
                 />
                 <div>
-                  <p style={{ color: 'var(--text-primary)', fontSize: '0.875rem', fontWeight: 500 }}>{pm.label}</p>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>{pm.description}</p>
+                    <p style={{ color: 'var(--text-primary)', fontSize: 'var(--text-caption)', fontWeight: 500 }}>{pm.label}</p>
+                    <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-xs)' }}>{pm.description}</p>
                 </div>
               </label>
             ))}
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '1.5rem' }}>
-            <button onClick={() => goToStep('shipping')} className="btn btn-secondary">
+            <button type="button" onClick={() => goToStep('shipping')} className="btn btn-secondary">
               <ChevronLeftIcon style={{ width: '1.25rem', height: '1.25rem' }} /> Back
             </button>
-            <button onClick={() => goToStep('review')} className="btn btn-primary">
+            <button type="button" onClick={() => goToStep('review')} className="btn btn-primary">
               Continue <ChevronRightIcon style={{ width: '1.25rem', height: '1.25rem' }} />
             </button>
           </div>
@@ -216,40 +241,42 @@ export const CheckoutPage = () => {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1.5rem' }} className="review-layout">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <div className="card">
-              <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Shipping Address</h3>
+              <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: 'var(--text-body)', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Shipping Address</h3>
               {selectedAddress && (
-                <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-caption)' }}>
                   {selectedAddress.street}, {selectedAddress.city}, {selectedAddress.state} {selectedAddress.postalCode}, {selectedAddress.country}
                 </p>
               )}
-              <button onClick={() => goToStep('shipping')} style={{ color: 'var(--accent-gold)', fontSize: '0.8125rem', background: 'none', border: 'none', cursor: 'pointer', marginTop: '0.5rem', fontFamily: 'inherit' }}>Change</button>
+              <button type="button" onClick={() => goToStep('shipping')} style={{ color: 'var(--accent-gold)', fontSize: 'var(--text-xs)', background: 'none', border: 'none', cursor: 'pointer', marginTop: '0.5rem', fontFamily: 'inherit' }}>Change</button>
             </div>
             <div className="card">
-              <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Payment Method</h3>
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>{PAYMENT_METHODS.find((p) => p.value === paymentMethod)?.label}</p>
-              <button onClick={() => goToStep('payment')} style={{ color: 'var(--accent-gold)', fontSize: '0.8125rem', background: 'none', border: 'none', cursor: 'pointer', marginTop: '0.5rem', fontFamily: 'inherit' }}>Change</button>
+              <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: 'var(--text-body)', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Payment Method</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-caption)' }}>{PAYMENT_METHODS.find((p) => p.value === paymentMethod)?.label}</p>
+              <button type="button" onClick={() => goToStep('payment')} style={{ color: 'var(--accent-gold)', fontSize: 'var(--text-xs)', background: 'none', border: 'none', cursor: 'pointer', marginTop: '0.5rem', fontFamily: 'inherit' }}>Change</button>
             </div>
             <div className="card">
-              <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>Order Items</h3>
+              <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: 'var(--text-body)', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '1rem' }}>Order Items</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {cart?.items.map((item) => (
                   <div key={item.cartItemId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <img src={item.product?.imageUrl || 'https://via.placeholder.com/48x48?text=No+Image'} alt={item.product?.name || 'Product'} style={{ width: '3rem', height: '3rem', objectFit: 'cover', borderRadius: 'var(--radius-sm)' }} />
-                      <div>
-                        <p style={{ fontSize: '0.875rem', color: 'var(--text-primary)', fontWeight: 500 }}>{item.product?.name}</p>
-                        <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Qty: {item.quantity}</p>
-                      </div>
+                      <Link to={`/products/${item.productId}`} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none' }}>
+                        <img src={item.product?.imageUrl || 'https://via.placeholder.com/48x48?text=No+Image'} alt={item.product?.name || 'Product'} style={{ width: '3rem', height: '3rem', objectFit: 'cover', borderRadius: 'var(--radius-sm)' }} />
+                        <div>
+                          <p style={{ fontSize: 'var(--text-caption)', color: 'var(--text-primary)', fontWeight: 500 }}>{item.product?.name}</p>
+                          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>Qty: {item.quantity}</p>
+                        </div>
+                      </Link>
                     </div>
-                    <p style={{ fontSize: '0.875rem', color: 'var(--accent-gold)', fontWeight: 500 }}>${((item.product?.price ?? 0) * item.quantity).toFixed(2)}</p>
+                    <p style={{ fontSize: 'var(--text-caption)', color: 'var(--accent-gold)', fontWeight: 500 }}>${((item.product?.price ?? 0) * item.quantity).toFixed(2)}</p>
                   </div>
                 ))}
               </div>
             </div>
           </div>
           <div className="card" style={{ height: 'fit-content', position: 'sticky', top: '6rem' }}>
-            <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>Order Summary</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.875rem' }}>
+            <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: 'var(--text-body)', fontWeight: 500, color: 'var(--text-primary)', marginBottom: '1rem' }}>Order Summary</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: 'var(--text-caption)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-secondary)' }}>
                 <span>Subtotal ({cart?.items.length} items)</span>
                 <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>${cart?.totalAmount.toFixed(2)}</span>
@@ -259,51 +286,56 @@ export const CheckoutPage = () => {
                 <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>$0.00</span>
               </div>
               <hr className="divider" />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-heading)', fontSize: '1.125rem', color: 'var(--accent-gold)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'var(--font-heading)', fontSize: 'var(--text-heading)', fontWeight: 600, color: 'var(--accent-gold)' }}>
                 <span>Total</span>
                 <span>${cart?.totalAmount.toFixed(2)}</span>
               </div>
             </div>
-            <button onClick={handlePlaceOrder} disabled={orderLoading} className="btn btn-primary" style={{ width: '100%', marginTop: '1.5rem' }}>
+            <button type="button" onClick={handlePlaceOrder} disabled={orderLoading} className="btn btn-primary" style={{ width: '100%', marginTop: '1.5rem' }}>
               {orderLoading ? 'Placing Order...' : 'Place Order'}
             </button>
           </div>
         </div>
       )}
 
-      <Modal isOpen={showAddressModal} onClose={() => setShowAddressModal(false)} title="Add New Address">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <Modal isOpen={showAddressModal} onClose={() => { dispatch({ showAddressModal: false }); reset(emptyAddress); }} title="Add New Address">
+        <form onSubmit={handleSubmit(onAddAddress)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
-            <label className="label">Street</label>
-            <input type="text" value={newAddress.street} onChange={(e) => setNewAddress({ ...newAddress, street: e.target.value })} className="input" placeholder="123 Main St" />
+            <label className="label" htmlFor="street">Street</label>
+            <input id="street" type="text" className="input" placeholder="123 Main St" {...register('street')} />
+            <FieldError name="street" errors={errors} />
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
-              <label className="label">City</label>
-              <input type="text" value={newAddress.city} onChange={(e) => setNewAddress({ ...newAddress, city: e.target.value })} className="input" />
+              <label className="label" htmlFor="city">City</label>
+              <input id="city" type="text" className="input" {...register('city')} />
+              <FieldError name="city" errors={errors} />
             </div>
             <div>
-              <label className="label">State</label>
-              <input type="text" value={newAddress.state} onChange={(e) => setNewAddress({ ...newAddress, state: e.target.value })} className="input" />
+              <label className="label" htmlFor="state">State</label>
+              <input id="state" type="text" className="input" {...register('state')} />
+              <FieldError name="state" errors={errors} />
             </div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div>
-              <label className="label">Postal Code</label>
-              <input type="text" value={newAddress.postalCode} onChange={(e) => setNewAddress({ ...newAddress, postalCode: e.target.value })} className="input" />
+              <label className="label" htmlFor="postalCode">Postal Code</label>
+              <input id="postalCode" type="text" className="input" {...register('postalCode')} />
+              <FieldError name="postalCode" errors={errors} />
             </div>
             <div>
-              <label className="label">Country</label>
-              <input type="text" value={newAddress.country} onChange={(e) => setNewAddress({ ...newAddress, country: e.target.value })} className="input" />
+              <label className="label" htmlFor="country">Country</label>
+              <input id="country" type="text" className="input" {...register('country')} />
+              <FieldError name="country" errors={errors} />
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.5rem' }}>
-            <button onClick={() => setShowAddressModal(false)} className="btn btn-secondary">Cancel</button>
-            <button onClick={handleAddAddress} disabled={!newAddress.street || !newAddress.city || !newAddress.state || !newAddress.postalCode || !newAddress.country} className="btn btn-primary">
-              Save Address
+            <button type="button" onClick={() => { dispatch({ showAddressModal: false }); reset(emptyAddress); }} className="btn btn-secondary">Cancel</button>
+            <button type="submit" disabled={isSubmitting} className="btn btn-primary">
+              {isSubmitting ? 'Saving...' : 'Save Address'}
             </button>
           </div>
-        </div>
+        </form>
       </Modal>
 
       <style>{`

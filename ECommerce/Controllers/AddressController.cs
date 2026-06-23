@@ -25,25 +25,36 @@ namespace ECommerce.Controllers
 
         [HttpGet]
         [Authorize]
-        public async Task<ActionResult<IEnumerable<AddressResponse>>> GetAddresses()
+        public async Task<ActionResult<IEnumerable<AddressResponse>>> GetMyAddresses(int id)
         {
-            IQueryable<Model.Entity.Address> query = _context.Addresses;
+            var userExist = _context.User.Find(id);
 
-            // Customers can only see their own addresses
-            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
-            if (currentUserRole == UserRole.Customer.ToString())
+            if (userExist == null)
             {
-                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                                  ?? User.FindFirstValue("sub");
-                var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
-                if (currentUser != null)
-                {
-                    query = query.Where(a => a.UserId == currentUser.UserId);
-                }
+                return NotFound();
             }
 
-            var entities = await query.ToListAsync();
-            var responseDtos = _mapper.Map<List<AddressResponse>>(entities);
+            // IQueryable<Model.Entity.Address> query = _context.Addresses;
+
+            var address = _context.Addresses.Where(U => U.UserId == id)
+                                            .ToList();
+
+            // Customers can only see their own addresses
+            // var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
+            // if (currentUserRole == UserRole.Customer.ToString())
+            // {
+            //     var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+            //                       ?? User.FindFirstValue("sub");
+            //     var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
+
+            // }
+            // else
+            // {
+            //     return BadRequest();
+            // }
+
+            // var entities = await query.ToListAsync();
+            var responseDtos = _mapper.Map<List<AddressResponse>>(address);
             return Ok(responseDtos);
         }
 
@@ -57,6 +68,7 @@ namespace ECommerce.Controllers
             }
 
             var entity = _mapper.Map<Model.Entity.Address>(request);
+
 
             // Automatically assign the UserId for customers
             var currentUserRole = User.FindFirstValue(ClaimTypes.Role);

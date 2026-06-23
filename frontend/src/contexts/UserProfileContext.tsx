@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
+import { createContext, useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from 'react';
 import { useAuth } from '../hooks/useAuth0';
 import { profileApi } from '../services/profileApi';
 import type { ProfileResponse } from '../types/user';
@@ -57,7 +57,7 @@ export const UserProfileProvider = ({ children }: { children: ReactNode }) => {
   }, [fetchProfile]);
 
   return (
-    <UserProfileContext.Provider value={{ profile, loading: loading || authLoading, error, refetch }}>
+    <UserProfileContext.Provider value={useMemo(() => ({ profile, loading: loading || authLoading, error, refetch }), [profile, loading, authLoading, error, refetch])}>
       {children}
     </UserProfileContext.Provider>
   );

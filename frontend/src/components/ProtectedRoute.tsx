@@ -27,8 +27,8 @@ const ProtectedRoute = () => {
           <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
             Failed to load profile
           </h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginBottom: '1rem' }}>{error}</p>
-          <button onClick={refetch} className="btn btn-primary">
+          <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-caption)', marginBottom: '1rem' }}>{error}</p>
+          <button type="button" onClick={refetch} className="btn btn-primary">
             Retry
           </button>
         </div>

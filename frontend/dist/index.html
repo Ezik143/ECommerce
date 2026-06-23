@@ -8,8 +8,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet" />
-    <script type="module" crossorigin src="/assets/index-Hny6QWkj.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-CndU13Hg.css">
+    <script>
+      (function() {
+        var t = null;
+        try { t = localStorage.getItem('kintsugi-theme'); } catch(e) {}
+        if (!t) { t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; }
+        if (t === 'light' || t === 'dark') { document.documentElement.setAttribute('data-theme', t); }
+      })();
+    </script>
+    <script type="module" crossorigin src="/assets/index-Cv0wDj8V.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D-dITt3D.css">
   </head>
   <body>
     <div id="root"></div>

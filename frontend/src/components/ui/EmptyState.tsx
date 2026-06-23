@@ -70,7 +70,7 @@ export const EmptyState = ({
       <h3 className="empty-state-title">{title || config.defaultTitle}</h3>
       <p className="empty-state-message">{message || config.defaultMessage}</p>
       {onAction && (
-        <button onClick={onAction} className="btn btn-primary">
+        <button type="button" onClick={onAction} className="btn btn-primary">
           {actionLabel || config.defaultActionLabel}
         </button>
       )}
