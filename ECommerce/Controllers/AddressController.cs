@@ -23,38 +23,27 @@ namespace ECommerce.Controllers
             _mapper = mapper;
         }
 
-        [HttpGet]
+        [HttpGet("MyAddresses")]
         [Authorize]
-        public async Task<ActionResult<IEnumerable<AddressResponse>>> GetMyAddresses(int id)
+        public async Task<ActionResult<IEnumerable<AddressResponse>>> GetMyAddresses()
         {
-            var userExist = _context.User.Find(id);
+            var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
 
-            if (userExist == null)
+            if (string.IsNullOrEmpty(auth0UserId))
             {
-                return NotFound();
+                return Unauthorized();
             }
 
-            // IQueryable<Model.Entity.Address> query = _context.Addresses;
+            var currentUser = _context.User.FirstOrDefault(u => u.Auth0Id == auth0UserId);
+            if (currentUser == null)
+            {
+                return NotFound("User profile not found.");
+            }
+            var addresses = await _context.Addresses
+                                              .Where(a => a.UserId == currentUser.UserId)
+                                              .ToListAsync();
 
-            var address = _context.Addresses.Where(U => U.UserId == id)
-                                            .ToList();
-
-            // Customers can only see their own addresses
-            // var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
-            // if (currentUserRole == UserRole.Customer.ToString())
-            // {
-            //     var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-            //                       ?? User.FindFirstValue("sub");
-            //     var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
-
-            // }
-            // else
-            // {
-            //     return BadRequest();
-            // }
-
-            // var entities = await query.ToListAsync();
-            var responseDtos = _mapper.Map<List<AddressResponse>>(address);
+            var responseDtos = _mapper.Map<List<AddressResponse>>(addresses);
             return Ok(responseDtos);
         }
 
