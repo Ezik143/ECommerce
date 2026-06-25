@@ -28,41 +28,48 @@ namespace ECommerce.Controllers
         [Authorize]
         public async Task<IActionResult> GetAllOrderItems()
         {
-            IQueryable<OrderItem> query = _context.OrderItems;
+
+            var OrderItems = _context.OrderItems.Include(oi => oi.Product);
 
             var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
-            if (currentUserRole == nameof(UserRole.Seller))
-            {
-                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                                  ?? User.FindFirstValue("sub");
-                var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
-                if (currentUser != null)
-                {
-                    var sellerProductIds = await _context.Products
-                        .Where(p => p.SellerId == currentUser.UserId)
-                        .Select(p => p.ProductId)
-                        .ToListAsync();
 
-                    query = query.Where(oi => sellerProductIds.Contains(oi.ProductId));
-                }
+            if (currentUserRole != nameof(UserRole.Seller))
+            {
+                return BadRequest();
+            }
+            var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
+                              ?? User.FindFirstValue("sub");
+            var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
+
+            if (currentUser == null)
+            {
+                return BadRequest();
             }
 
-            var entities = await query.ToListAsync();
-            var result = await BuildOrderItemResponses(entities);
-            return Ok(result);
+            var sellerProductId = await _context.Products
+                                        .Where(p => p.SellerId == currentUser.UserId)
+                                        .Select(p => p.ProductId)
+                                        .ToListAsync();
+
+            var hatdog = await OrderItems.Where(oi => sellerProductId.Contains(oi.ProductId)).ToListAsync();
+            var dto = _mapper.Map<List<OrderItemResponse>>(hatdog);
+            return Ok(dto);
+
         }
 
         [HttpGet("{id}")]
         [Authorize]
         public async Task<IActionResult> GetOrderItem(int id)
         {
-            var entity = await _context.OrderItems.FindAsync(id);
+            var entity = await _context.OrderItems
+                .Include(oi => oi.Product)
+                .FirstOrDefaultAsync(oi => oi.OrderItemId == id);
             if (entity == null)
             {
                 return NotFound();
             }
 
-            var result = (await BuildOrderItemResponses(new[] { entity })).FirstOrDefault();
+            var result = _mapper.Map<OrderItemResponse>(entity);
             return Ok(result);
         }
 
@@ -72,9 +79,10 @@ namespace ECommerce.Controllers
         {
             var entities = await _context.OrderItems
                 .Where(oi => oi.OrderId == orderId)
+                .Include(oi => oi.Product)
                 .ToListAsync();
 
-            var result = await BuildOrderItemResponses(entities);
+            var result = _mapper.Map<List<OrderItemResponse>>(entities);
             return Ok(result);
         }
 
@@ -93,7 +101,7 @@ namespace ECommerce.Controllers
             _context.OrderItems.Add(entity);
             await _context.SaveChangesAsync();
 
-            var result = (await BuildOrderItemResponses(new[] { entity })).FirstOrDefault();
+            var result = _mapper.Map<OrderItemResponse>(entity);
             return Ok(result);
         }
 
@@ -106,7 +114,9 @@ namespace ECommerce.Controllers
                 return BadRequest("OrderItem data is required.");
             }
 
-            var entity = await _context.OrderItems.FindAsync(id);
+            var entity = await _context.OrderItems
+                .Include(oi => oi.Product)
+                .FirstOrDefaultAsync(oi => oi.OrderItemId == id);
             if (entity == null)
             {
                 return NotFound();
@@ -116,7 +126,7 @@ namespace ECommerce.Controllers
             entity.TotalPrice = entity.Quantity * entity.UnitPrice;
             await _context.SaveChangesAsync();
 
-            var result = (await BuildOrderItemResponses(new[] { entity })).FirstOrDefault();
+            var result = _mapper.Map<OrderItemResponse>(entity);
             return Ok(result);
         }
 
@@ -135,25 +145,7 @@ namespace ECommerce.Controllers
             return NoContent();
         }
 
-        private async Task<List<OrderItemResponse>> BuildOrderItemResponses(IEnumerable<OrderItem> items)
-        {
-            var itemList = items.ToList();
-            if (itemList.Count == 0)
-                return new List<OrderItemResponse>();
 
-            var productIds = itemList.Select(i => i.ProductId).Distinct().ToList();
-            var products = await _context.Products
-                .Where(p => productIds.Contains(p.ProductId))
-                .ToDictionaryAsync(p => p.ProductId, p => p.Name);
 
-            return itemList.Select(item => new OrderItemResponse
-            {
-                OrderItemId = item.OrderItemId,
-                ProductId = item.ProductId,
-                ProductName = products.GetValueOrDefault(item.ProductId) ?? "Unknown",
-                Price = item.UnitPrice,
-                Quantity = item.Quantity,
-            }).ToList();
-        }
     }
 }

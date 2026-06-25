@@ -199,13 +199,9 @@ namespace ECommerce.Controllers
             var orderIds = orderList.Select(o => o.OrderId).ToList();
 
             var orderItems = await _context.OrderItems
+                .Include(oi => oi.Product)
                 .Where(oi => orderIds.Contains(oi.OrderId))
                 .ToListAsync();
-
-            var productIds = orderItems.Select(oi => oi.ProductId).Distinct().ToList();
-            var products = await _context.Products
-                .Where(p => productIds.Contains(p.ProductId))
-                .ToDictionaryAsync(p => p.ProductId, p => p.Name);
 
             var addressIds = orderList.Select(o => o.ShippingAddressId).Distinct().ToList();
             var addresses = await _context.Addresses
@@ -229,14 +225,7 @@ namespace ECommerce.Controllers
                     PaymentMethod = order.Payment.ToString(),
                     ShippingAddress = addresses.GetValueOrDefault(order.ShippingAddressId) ?? string.Empty,
                     CreatedAt = order.OrderDate,
-                    Items = items.Select(oi => new OrderItemResponse
-                    {
-                        OrderItemId = oi.OrderItemId,
-                        ProductId = oi.ProductId,
-                        ProductName = products.GetValueOrDefault(oi.ProductId) ?? "Unknown",
-                        Price = oi.UnitPrice,
-                        Quantity = oi.Quantity,
-                    }).ToList()
+                    Items = _mapper.Map<List<OrderItemResponse>>(items)
                 };
             }).ToList();
         }
