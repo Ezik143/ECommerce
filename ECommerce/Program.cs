@@ -84,6 +84,17 @@ builder.Services.AddTransient<IAuthorizationHandler, AddressAuthorizationHandler
 builder.Services.AddTransient<IAuthorizationHandler, OrderAuthorizationHandler>();
 builder.Services.AddTransient<IAuthorizationHandler, ProductAuthorizationHandler>();
 
+// Register services
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<ICategoryService, CategoryService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<ICartService, CartService>();
+builder.Services.AddScoped<ICartItemService, CartItemService>();
+builder.Services.AddScoped<IAddressService, AddressService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IProfileService, ProfileService>();
+builder.Services.AddScoped<IOrderItemService, OrderItemService>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>

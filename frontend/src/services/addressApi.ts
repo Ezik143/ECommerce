@@ -2,13 +2,8 @@ import { api } from './api';
 import type { AddressResponse, CreateAddressRequest, UpdateAddressRequest } from '../types/api';
 
 export const addressApi = {
-  getAddresses: async (userId: number): Promise<AddressResponse[]> => {
-    const response = await api.get<AddressResponse[]>('/api/Address', { params: { id: userId } });
-    return response.data;
-  },
-
-  getAddressById: async (id: number): Promise<AddressResponse> => {
-    const response = await api.get<AddressResponse>(`/api/Address/${id}`);
+  getAddresses: async (): Promise<AddressResponse[]> => {
+    const response = await api.get<AddressResponse[]>('/api/Address/MyAddresses');
     return response.data;
   },
 

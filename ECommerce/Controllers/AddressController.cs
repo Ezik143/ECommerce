@@ -1,11 +1,8 @@
-﻿using AutoMapper;
-using ECommerce.Data;
-using ECommerce.Model.Dto.Request;
-using ECommerce.Model.Dto.Response;
+﻿using ECommerce.Model.Dto.Request;
 using ECommerce.Model.Enum;
+using ECommerce.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace ECommerce.Controllers
@@ -14,69 +11,54 @@ namespace ECommerce.Controllers
     [ApiController]
     public class AddressController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper;
+        private readonly IAddressService _addressService;
+        private readonly IUserService _userService;
 
-        public AddressController(ApplicationDbContext context, IMapper mapper)
+        public AddressController(IAddressService addressService, IUserService userService)
         {
-            _context = context;
-            _mapper = mapper;
+            _addressService = addressService;
+            _userService = userService;
         }
 
         [HttpGet("MyAddresses")]
         [Authorize]
-        public async Task<ActionResult<IEnumerable<AddressResponse>>> GetMyAddresses()
+        public async Task<ActionResult<IEnumerable<object>>> GetMyAddresses()
         {
             var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
-
             if (string.IsNullOrEmpty(auth0UserId))
-            {
                 return Unauthorized();
-            }
 
-            var currentUser = _context.User.FirstOrDefault(u => u.Auth0Id == auth0UserId);
+            var currentUser = await _userService.GetUserByAuth0IdAsync(auth0UserId);
             if (currentUser == null)
-            {
                 return NotFound("User profile not found.");
-            }
-            var addresses = await _context.Addresses
-                                              .Where(a => a.UserId == currentUser.UserId)
-                                              .ToListAsync();
 
-            var responseDtos = _mapper.Map<List<AddressResponse>>(addresses);
-            return Ok(responseDtos);
+            var result = await _addressService.GetMyAddressesAsync(currentUser.UserId);
+            return Ok(result);
         }
 
         [HttpPost]
         [Authorize]
-        public async Task<ActionResult<AddressResponse>> CreateAddress(CreateAddressRequest request)
+        public async Task<IActionResult> CreateAddress(CreateAddressRequest request)
         {
             if (request == null)
-            {
                 return BadRequest("Address data is required.");
-            }
 
-            var entity = _mapper.Map<Model.Entity.Address>(request);
-
-
-            // Automatically assign the UserId for customers
+            int? userId = null;
             var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
             if (currentUserRole == nameof(UserRole.Customer))
             {
-                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                                  ?? User.FindFirstValue("sub");
-                var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
-                if (currentUser != null)
+                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+                if (auth0UserId == null)
                 {
-                    entity.UserId = currentUser.UserId;
+                    return BadRequest();
                 }
+                var currentUser = await _userService.GetUserByAuth0IdAsync(auth0UserId);
+                if (currentUser != null)
+                    userId = currentUser.UserId;
             }
 
-            _context.Addresses.Add(entity);
-            await _context.SaveChangesAsync();
-
-            var responseDto = _mapper.Map<AddressResponse>(entity);
-            return Ok(responseDto);
+            var result = await _addressService.CreateAddressAsync(request, userId);
+            return Ok(result);
         }
 
         [HttpPut("{id}")]
@@ -84,35 +66,21 @@ namespace ECommerce.Controllers
         public async Task<IActionResult> UpdateAddress(int id, UpdateAddressRequest request)
         {
             if (request == null)
-            {
                 return BadRequest("Address data is required.");
-            }
 
-            var entity = await _context.Addresses.FindAsync(id);
-            if (entity == null)
-            {
+            var result = await _addressService.UpdateAddressAsync(id, request);
+            if (result == null)
                 return NotFound();
-            }
-
-            _mapper.Map(request, entity);
-            await _context.SaveChangesAsync();
-
-            var responseDto = _mapper.Map<AddressResponse>(entity);
-            return Ok(responseDto);
+            return Ok(result);
         }
 
         [HttpDelete("{id}")]
         [Authorize(Policy = "AddressOwner")]
         public async Task<IActionResult> DeleteAddress(int id)
         {
-            var entity = await _context.Addresses.FindAsync(id);
-            if (entity == null)
-            {
+            var deleted = await _addressService.DeleteAddressAsync(id);
+            if (!deleted)
                 return NotFound();
-            }
-
-            _context.Addresses.Remove(entity);
-            await _context.SaveChangesAsync();
             return NoContent();
         }
     }

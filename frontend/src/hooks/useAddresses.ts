@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { addressApi } from '../services/addressApi';
-import { useUserProfile } from './useUserProfile';
 import type { AddressResponse, CreateAddressRequest, UpdateAddressRequest } from '../types/api';
 import { useToast } from '../components/ui/Toast';
 
@@ -9,19 +8,12 @@ export const useAddresses = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { success, error: showError } = useToast();
-  const { profile } = useUserProfile();
 
   const fetchAddresses = useCallback(async () => {
-    const userId = profile?.localUserId;
-    if (userId == null) {
-      setAddresses([]);
-      setLoading(false);
-      return;
-    }
     try {
       setLoading(true);
       setError(null);
-      const data = await addressApi.getAddresses(userId);
+      const data = await addressApi.getAddresses();
       setAddresses(data);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load addresses';
@@ -29,7 +21,7 @@ export const useAddresses = () => {
     } finally {
       setLoading(false);
     }
-  }, [profile?.localUserId]);
+  }, []);
 
   const createAddress = useCallback(async (data: CreateAddressRequest) => {
     try {

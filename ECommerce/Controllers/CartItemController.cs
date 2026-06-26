@@ -1,11 +1,7 @@
-using AutoMapper;
-using ECommerce.Data;
 using ECommerce.Model.Dto.Request;
-using ECommerce.Model.Dto.Response;
-using ECommerce.Model.Entity;
+using ECommerce.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace ECommerce.Controllers
 {
@@ -14,25 +10,18 @@ namespace ECommerce.Controllers
     [Authorize]
     public class CartItemController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper;
+        private readonly ICartItemService _cartItemService;
 
-        public CartItemController(ApplicationDbContext context, IMapper mapper)
+        public CartItemController(ICartItemService cartItemService)
         {
-            _context = context;
-            _mapper = mapper;
+            _cartItemService = cartItemService;
         }
 
         [HttpGet("cart/{cartId}")]
         public async Task<IActionResult> GetCartItemsByCartId(int cartId)
         {
-            var entity = await _context.CartItem
-                .Include(ci => ci.Product)
-                .Where(ci => ci.CartId == cartId)
-                .ToListAsync();
-
-            var dto = _mapper.Map<List<CartItemResponse>>(entity);
-            return Ok(dto);
+            var result = await _cartItemService.GetCartItemsByCartIdAsync(cartId);
+            return Ok(result);
         }
 
         [HttpPost]
@@ -41,25 +30,10 @@ namespace ECommerce.Controllers
             if (request == null)
                 return BadRequest(new { message = "CartItem data is required." });
 
-            var existing = await _context.CartItem
-                                        .FirstOrDefaultAsync(c => c.CartId == request.CartId && c.ProductId == request.ProductId);
-
-            if (existing != null)
-            {
-                existing.Quantity += request.Quantity;
-                await _context.SaveChangesAsync();
+            var result = await _cartItemService.AddCartItemAsync(request);
+            if (result == null)
                 return NoContent();
-            }
-            else
-            {
-                var entity = _mapper.Map<CartItem>(request);
-                _context.CartItem.Add(entity);
-
-                await _context.SaveChangesAsync();
-
-                var dto = _mapper.Map<CartItemResponse>(entity);
-                return Ok(dto);
-            }
+            return Ok(result);
         }
 
         [HttpPut("{id}")]
@@ -68,47 +42,18 @@ namespace ECommerce.Controllers
             if (request == null)
                 return BadRequest();
 
-            var entity = await _context.CartItem
-                            .Include(ci => ci.Product)
-                            .FirstOrDefaultAsync(ci => ci.CartItemId == id);
-
-            if (entity == null)
-            {
+            var result = await _cartItemService.UpdateCartItemAsync(id, request);
+            if (result == null)
                 return NotFound();
-            }
-
-            entity.Quantity = request.Quantity;
-            await _context.SaveChangesAsync();
-
-            var cart = await _context.Cart.FindAsync(entity.CartId);
-            if (cart != null)
-            {
-                cart.UpdatedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
-            }
-
-            var dto = _mapper.Map<CartItemResponse>(entity);
-            return Ok(dto);
-
+            return Ok(result);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCartItem(int id)
         {
-            var entity = await _context.CartItem.FindAsync(id);
-            if (entity == null)
+            var deleted = await _cartItemService.DeleteCartItemAsync(id);
+            if (!deleted)
                 return NotFound();
-
-            _context.CartItem.Remove(entity);
-            await _context.SaveChangesAsync();
-
-            var cart = await _context.Cart.FindAsync(entity.CartId);
-            if (cart != null)
-            {
-                cart.UpdatedAt = DateTime.UtcNow;
-                await _context.SaveChangesAsync();
-            }
-
             return NoContent();
         }
     }

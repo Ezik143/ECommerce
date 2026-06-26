@@ -109,72 +109,7 @@ namespace ECommerce.Controllers
             }
         }
 
-        // [HttpPost]
-        // [Authorize(Policy = "SellerOnly")]
-        // public async Task<IActionResult> CreateProduct(CreateProductRequest request)
-        // {
-        //     try
-        //     {
-        //         if (request == null)
-        //             return BadRequest(new { message = "Product data is required." });
 
-        //         var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
-        //         int sellerId = 0;
-
-        //         if (currentUserRole == nameof(UserRole.Seller))
-        //         {
-        //             var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
-        //             var currentUser = auth0UserId != null
-        //                 ? await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId)
-        //                 : null;
-        //             if (currentUser == null)
-        //                 return BadRequest(new { message = "Seller account not found. Please ensure your profile is set up." });
-
-        //             sellerId = currentUser.UserId;
-        //         }
-
-        //         var categoryExists = await _context.Categories.AnyAsync(c => c.CategoryId == request.CategoryId);
-        //         if (!categoryExists)
-        //             return BadRequest(new { message = $"Category with ID {request.CategoryId} does not exist." });
-
-        //         var entity = new Product
-        //         {
-        //             CategoryId = request.CategoryId,
-        //             SellerId = sellerId,
-        //             Name = request.Name,
-        //             Description = request.Description,
-        //             Price = request.Price,
-        //             StockQuantity = request.StockQuantity,
-        //             ImageUrl = request.ImageUrl,
-        //             CreatedAt = DateTime.UtcNow,
-        //         };
-
-        //         _context.Products.Add(entity);
-        //         await _context.SaveChangesAsync();
-
-        //         var dto = new ProductResponse
-        //         {
-        //             ProductId = entity.ProductId,
-        //             CategoryId = entity.CategoryId,
-        //             CategoryName = await _context.Categories.Where(c => c.CategoryId == entity.CategoryId).Select(c => c.Name).FirstOrDefaultAsync() ?? "",
-        //             SellerId = entity.SellerId,
-        //             SellerName = await _context.User.Where(u => u.UserId == entity.SellerId).Select(u => u.FullName).FirstOrDefaultAsync() ?? "",
-        //             Name = entity.Name,
-        //             Description = entity.Description,
-        //             Price = entity.Price,
-        //             StockQuantity = entity.StockQuantity,
-        //             ImageUrl = entity.ImageUrl,
-        //             CreatedAt = entity.CreatedAt,
-        //         };
-
-        //         return Ok(dto);
-        //     }
-        //     catch (Exception ex)
-        //     {
-        //         _logger.LogError(ex, "Error creating product");
-        //         return StatusCode(500, new { message = ex.InnerException?.Message ?? ex.Message });
-        //     }
-        // }
 
         [HttpPut("{id}")]
         [Authorize(Policy = "ProductOwner")]
@@ -206,62 +141,7 @@ namespace ECommerce.Controllers
             }
         }
 
-        // [HttpPut("{id}")]
-        // [Authorize(Policy = "ProductOwner")]
-        // public async Task<IActionResult> UpdateProduct(int id, UpdateProductRequest request)
-        // {
-        //     try
-        //     {
-        //         if (request == null)
-        //             return BadRequest(new { message = "Product data is required." });
 
-        //         var entity = await _context.Products.FindAsync(id);
-        //         if (entity == null)
-        //             return NotFound();
-
-        //         var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
-        //         if (currentUserRole == nameof(UserRole.Seller))
-        //         {
-        //             var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
-        //             var currentUser = auth0UserId != null
-        //                 ? await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId)
-        //                 : null;
-        //             if (currentUser == null || entity.SellerId != currentUser.UserId)
-        //                 return Forbid();
-        //         }
-
-        //         entity.Name = request.Name;
-        //         entity.Description = request.Description;
-        //         entity.Price = request.Price;
-        //         entity.StockQuantity = request.StockQuantity;
-        //         entity.CategoryId = request.CategoryId;
-        //         entity.ImageUrl = request.ImageUrl;
-
-        //         await _context.SaveChangesAsync();
-
-        //         var dto = new ProductResponse
-        //         {
-        //             ProductId = entity.ProductId,
-        //             CategoryId = entity.CategoryId,
-        //             CategoryName = await _context.Categories.Where(c => c.CategoryId == entity.CategoryId).Select(c => c.Name).FirstOrDefaultAsync() ?? "",
-        //             SellerId = entity.SellerId,
-        //             SellerName = await _context.User.Where(u => u.UserId == entity.SellerId).Select(u => u.FullName).FirstOrDefaultAsync() ?? "",
-        //             Name = entity.Name,
-        //             Description = entity.Description,
-        //             Price = entity.Price,
-        //             StockQuantity = entity.StockQuantity,
-        //             ImageUrl = entity.ImageUrl,
-        //             CreatedAt = entity.CreatedAt,
-        //         };
-
-        //         return Ok(dto);
-        //     }
-        //     catch (Exception ex)
-        //     {
-        //         _logger.LogError(ex, "Error updating product {ProductId}", id);
-        //         return StatusCode(500, new { message = ex.InnerException?.Message ?? ex.Message });
-        //     }
-        // }
 
         [HttpDelete("{id}")]
         [Authorize(Policy = "SellerOrAdmin")]
