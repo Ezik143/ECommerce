@@ -396,3 +396,12 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
+# Frontend build artifacts
+frontend/dist/
+frontend/test-results/
+frontend/test-results.json
+frontend/vite.err
+frontend/vite.err.log
+frontend/vite.log
+frontend/node_modules/.cache/
