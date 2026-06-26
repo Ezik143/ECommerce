@@ -17,5 +17,30 @@ namespace ECommerce.Data
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<User> User { get; set; }
 
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Auth0Id)
+                .IsUnique();
+
+            modelBuilder.Entity<Category>(entity =>
+            {
+                entity.HasIndex(c => c.Slug)
+                    .IsUnique();
+
+                entity.HasOne(c => c.ParentCategory)
+                    .WithMany(c => c.ChildCategories)
+                    .HasForeignKey(c => c.ParentCategoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Product>(entity =>
+            {
+                entity.HasOne(p => p.Category)
+                    .WithMany()
+                    .HasForeignKey(p => p.CategoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+        }
     }
 }

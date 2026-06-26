@@ -1,88 +1,53 @@
-﻿using AutoMapper;
-using ECommerce.Data;
-using ECommerce.Model.Dto.Request;
-using ECommerce.Model.Dto.Response;
-using ECommerce.Model.Entity;
+﻿using ECommerce.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace ECommerce.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Policy = "CustomerSelf")]
+    [Authorize]
     public class CartController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper;
-        public CartController(ApplicationDbContext context, IMapper mapper)
+        private readonly ICartService _cartService;
+        private readonly IUserService _userService;
+
+        public CartController(ICartService cartService, IUserService userService)
         {
-            _context = context;
-            _mapper = mapper;
+            _cartService = cartService;
+            _userService = userService;
         }
 
-        [HttpGet]
-        public async Task<IActionResult> GetAllCart()
+        [HttpGet("mine")]
+        public async Task<IActionResult> GetMyCart()
         {
-            var entities = await _context.Cart.ToListAsync();
+            var userId = await GetCurrentUserId();
+            if (userId == null)
+                return Unauthorized(new { message = "User not found" });
 
-            var responseDtos = _mapper.Map<List<CartResponse>>(entities);
-            return Ok(responseDtos);
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> CreateCart(CreateCartRequest request)
-        {
-            if (request == null)
-            {
-                return BadRequest("Cart data is required.");
-            }
-
-            var entity = _mapper.Map<Cart>(request);
-
-            _context.Cart.Add(entity);
-
-            await _context.SaveChangesAsync();
-
-            var responseDto = _mapper.Map<CartResponse>(entity);
-            return Ok(responseDto);
-        }
-
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdateCart(int id, UpdateCartRequest request)
-        {
-            if (request == null)
-            {
-                return BadRequest("Cart data is required.");
-            }
-
-            var entity = await _context.Cart.FindAsync(id);
-            if (entity == null)
-            {
-                return NotFound();
-            }
-
-            _mapper.Map(request, entity);
-            await _context.SaveChangesAsync();
-
-            var responseDto = _mapper.Map<CartResponse>(entity);
-            return Ok(responseDto);
+            var result = await _cartService.GetMyCartAsync(userId.Value);
+            return Ok(result);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCart(int id)
         {
-            var entity = await _context.Cart.FindAsync(id);
-            if (entity == null)
-            {
-                return NotFound();
-            }
+            var userId = await GetCurrentUserId();
+            if (userId == null)
+                return Unauthorized(new { message = "User not found" });
 
-            _context.Cart.Remove(entity);
-            await _context.SaveChangesAsync();
+            var deleted = await _cartService.DeleteCartAsync(id, userId.Value);
+            if (!deleted)
+                return NotFound();
             return NoContent();
+        }
+
+        private async Task<int?> GetCurrentUserId()
+        {
+            var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (auth0UserId == null) return null;
+            return await _userService.GetUserIdByAuth0IdAsync(auth0UserId);
         }
     }
 }

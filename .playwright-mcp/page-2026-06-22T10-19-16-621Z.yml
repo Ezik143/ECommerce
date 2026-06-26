@@ -1,0 +1,98 @@
+- generic [ref=e2]:
+  - generic [ref=e3]:
+    - heading "Kintsugi" [level=1] [ref=e4]
+    - generic [ref=e5]: 0%
+  - main [ref=e6]:
+    - generic [ref=e9]:
+      - heading "Kintsugi" [level=1] [ref=e10]
+      - paragraph [ref=e11]:
+        - generic [ref=e12]: c
+        - generic [ref=e13]: u
+        - generic [ref=e14]: r
+        - generic [ref=e15]: a
+        - generic [ref=e16]: t
+        - generic [ref=e17]: e
+        - generic [ref=e18]: d
+        - generic [ref=e20]: c
+        - generic [ref=e21]: o
+        - generic [ref=e22]: m
+        - generic [ref=e23]: m
+        - generic [ref=e24]: e
+        - generic [ref=e25]: r
+        - generic [ref=e26]: c
+        - generic [ref=e27]: e
+      - button "Enter the Collection" [ref=e29]:
+        - generic [ref=e30]:
+          - text: Enter the Collection
+          - img [ref=e31]
+    - generic [ref=e39]:
+      - paragraph [ref=e40]:
+        - text: Where every piece
+        - text: tells a story
+      - paragraph [ref=e41]: From the hands of master artisans to your doorstep — each object in our collection carries the warmth of human craft and the patina of intention.
+      - generic [ref=e42]:
+        - generic [ref=e43]:
+          - generic [ref=e44]: "01"
+          - heading "Artisan Sourced" [level=3] [ref=e45]
+          - paragraph [ref=e46]: Every piece hand-selected from master craftspeople around the world.
+        - generic [ref=e47]:
+          - generic [ref=e48]: "02"
+          - heading "Timeless Design" [level=3] [ref=e49]
+          - paragraph [ref=e50]: Objects that transcend trends, built to last generations.
+        - generic [ref=e51]:
+          - generic [ref=e52]: "03"
+          - heading "Ethical Luxury" [level=3] [ref=e53]
+          - paragraph [ref=e54]: Sustainable materials, fair wages, and zero compromise on quality.
+    - generic [ref=e56]:
+      - generic [ref=e57]: CURATED · ARTISAN · BESPOKE · GOLD · WARMTH · CRAFT · PATINA · HERITAGE ·
+      - generic [ref=e58]: CURATED · ARTISAN · BESPOKE · GOLD · WARMTH · CRAFT · PATINA · HERITAGE ·
+    - generic [ref=e60]:
+      - heading "Discover our world" [level=2] [ref=e61]
+      - paragraph [ref=e62]: Hover to explore each collection
+      - generic [ref=e63]:
+        - generic [ref=e65] [cursor=pointer]:
+          - generic [ref=e66]:
+            - img [ref=e68]
+            - generic [ref=e71]: "01"
+          - heading "Artisan Collection" [level=3] [ref=e72]
+        - generic [ref=e74] [cursor=pointer]:
+          - generic [ref=e75]:
+            - img [ref=e77]
+            - generic [ref=e80]: "02"
+          - heading "Gold & Precious" [level=3] [ref=e81]
+        - generic [ref=e83] [cursor=pointer]:
+          - generic [ref=e84]:
+            - img [ref=e86]
+            - generic [ref=e92]: "03"
+          - heading "Ceramics & Pottery" [level=3] [ref=e93]
+        - generic [ref=e95] [cursor=pointer]:
+          - generic [ref=e96]:
+            - img [ref=e98]
+            - generic [ref=e101]: "04"
+          - heading "Textiles & Weaves" [level=3] [ref=e102]
+        - generic [ref=e104] [cursor=pointer]:
+          - generic [ref=e105]:
+            - img [ref=e107]
+            - generic [ref=e109]: "05"
+          - heading "Wood & Heritage" [level=3] [ref=e110]
+        - generic [ref=e112] [cursor=pointer]:
+          - generic [ref=e113]:
+            - img [ref=e115]
+            - generic [ref=e118]: "06"
+          - heading "Sustainable Luxury" [level=3] [ref=e119]
+    - generic [ref=e120]:
+      - generic [ref=e123]:
+        - heading "Begin your journey" [level=2] [ref=e124]
+        - paragraph [ref=e125]: Join a community of collectors who cherish the art of mindful curation.
+        - generic [ref=e126]:
+          - button "Sign Up" [ref=e127]:
+            - generic [ref=e128]:
+              - text: Sign Up
+              - img [ref=e129]
+          - button "Explore Products" [ref=e131]:
+            - generic [ref=e132]:
+              - img [ref=e133]
+              - text: Explore Products
+      - generic [ref=e135]:
+        - paragraph [ref=e136]: Kintsugi · curated commerce
+        - paragraph [ref=e137]: © 2026 All rights reserved.

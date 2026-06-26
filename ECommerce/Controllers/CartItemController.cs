@@ -1,111 +1,59 @@
-using AutoMapper;
-using ECommerce.Data;
 using ECommerce.Model.Dto.Request;
-using ECommerce.Model.Dto.Response;
-using ECommerce.Model.Entity;
+using ECommerce.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace ECommerce.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Policy = "CustomerSelf")]
+    [Authorize]
     public class CartItemController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper;
+        private readonly ICartItemService _cartItemService;
 
-        public CartItemController(ApplicationDbContext context, IMapper mapper)
+        public CartItemController(ICartItemService cartItemService)
         {
-            _context = context;
-            _mapper = mapper;
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> GetAllCartItems()
-        {
-            var entities = await _context.CartItem.ToListAsync();
-
-            var responseDtos = _mapper.Map<List<CartItemResponse>>(entities);
-            return Ok(responseDtos);
-        }
-
-        [HttpGet("{id}")]
-        public async Task<IActionResult> GetCartItem(int id)
-        {
-            var entity = await _context.CartItem.FindAsync(id);
-            if (entity == null)
-            {
-                return NotFound();
-            }
-
-            var responseDto = _mapper.Map<CartItemResponse>(entity);
-            return Ok(responseDto);
+            _cartItemService = cartItemService;
         }
 
         [HttpGet("cart/{cartId}")]
         public async Task<IActionResult> GetCartItemsByCartId(int cartId)
         {
-            var entities = await _context.CartItem
-                .Where(ci => ci.CartId == cartId)
-                .ToListAsync();
-
-            var responseDtos = _mapper.Map<List<CartItemResponse>>(entities);
-            return Ok(responseDtos);
+            var result = await _cartItemService.GetCartItemsByCartIdAsync(cartId);
+            return Ok(result);
         }
 
         [HttpPost]
         public async Task<IActionResult> AddCartItem(AddCartItemRequest request)
         {
             if (request == null)
-            {
-                return BadRequest("CartItem data is required.");
-            }
+                return BadRequest(new { message = "CartItem data is required." });
 
-            var entity = _mapper.Map<CartItem>(request);
-
-            _context.CartItem.Add(entity);
-
-            await _context.SaveChangesAsync();
-
-            var responseDto = _mapper.Map<CartItemResponse>(entity);
-            return Ok(responseDto);
+            var result = await _cartItemService.AddCartItemAsync(request);
+            if (result == null)
+                return NoContent();
+            return Ok(result);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdateCartItem(int id, UpdateCartItemRequest request)
         {
             if (request == null)
-            {
-                return BadRequest("CartItem data is required.");
-            }
+                return BadRequest();
 
-            var entity = await _context.CartItem.FindAsync(id);
-            if (entity == null)
-            {
+            var result = await _cartItemService.UpdateCartItemAsync(id, request);
+            if (result == null)
                 return NotFound();
-            }
-
-            _mapper.Map(request, entity);
-            await _context.SaveChangesAsync();
-
-            var responseDto = _mapper.Map<CartItemResponse>(entity);
-            return Ok(responseDto);
+            return Ok(result);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> DeleteCartItem(int id)
         {
-            var entity = await _context.CartItem.FindAsync(id);
-            if (entity == null)
-            {
+            var deleted = await _cartItemService.DeleteCartItemAsync(id);
+            if (!deleted)
                 return NotFound();
-            }
-
-            _context.CartItem.Remove(entity);
-            await _context.SaveChangesAsync();
             return NoContent();
         }
     }

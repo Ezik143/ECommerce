@@ -1,7 +1,7 @@
-using ECommerce.Data;
+using ECommerce.Model.Dto.Request;
+using ECommerce.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace ECommerce.Controllers
@@ -11,40 +11,77 @@ namespace ECommerce.Controllers
     [Route("api/[controller]")]
     public class ProfileController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
+        private readonly IProfileService _profileService;
 
-        public ProfileController(ApplicationDbContext context)
+        public ProfileController(IProfileService profileService)
         {
-            _context = context;
+            _profileService = profileService;
         }
 
         [HttpGet("me")]
         public async Task<IActionResult> GetCurrentUser()
         {
-            // 1. Extract the Auth0 User ID from the JWT token
-            var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                              ?? User.FindFirstValue("sub");
-
+            var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
             if (string.IsNullOrEmpty(auth0UserId))
-            {
                 return Unauthorized("Invalid token: User ID not found.");
-            }
 
-            // 2. Look up this user in your local PostgreSQL database
-            var localUser = await _context.User
-                .FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
+            var email = User.FindFirstValue(ClaimTypes.Email) ?? "";
+            var name = User.FindFirstValue(ClaimTypes.Name) ?? "";
 
-            // 3. Return the data including role
-            return Ok(new
+            var result = await _profileService.GetCurrentUserAsync(auth0UserId, email, name);
+            return Ok(result);
+        }
+
+        [HttpPost("Ensure")]
+        public async Task<IActionResult> EnsureUserExist()
+        {
+            var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (string.IsNullOrEmpty(auth0UserId))
+                return Unauthorized("Auth0 ID not found");
+
+            var email = User.FindFirstValue(ClaimTypes.Email) ?? "";
+            var name = User.FindFirstValue(ClaimTypes.Name) ?? "";
+
+            var result = await _profileService.EnsureUserExistsAsync(auth0UserId, email, name);
+            return Ok(result);
+        }
+
+        [HttpPut("me/details")]
+        public async Task<IActionResult> UpdateProfileDetails([FromBody] CompleteProfileRequest request)
+        {
+            var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (string.IsNullOrEmpty(auth0UserId))
+                return Unauthorized("Auth0 ID not found");
+
+            try
             {
-                Auth0UserId = auth0UserId,
-                Email = User.FindFirstValue(ClaimTypes.Email),
-                Name = User.FindFirstValue(ClaimTypes.Name),
-                LocalUserId = localUser?.UserId,
-                LocalFullName = localUser?.FullName,
-                Role = localUser?.Role.ToString() ?? "Customer",
-                Message = "Successfully authenticated via Auth0!"
-            });
+                var result = await _profileService.UpdateProfileDetailsAsync(auth0UserId, request);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return NotFound(ex.Message);
+            }
+        }
+
+        [HttpPut("me/role")]
+        public async Task<IActionResult> SetMyRole([FromBody] SetRoleRequest request)
+        {
+            var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            if (string.IsNullOrEmpty(auth0UserId))
+                return Unauthorized("Auth0 ID not found");
+
+            try
+            {
+                var result = await _profileService.SetUserRoleAsync(auth0UserId, request.Role);
+                return Ok(result);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
     }
+
+    public record SetRoleRequest(string Role);
 }

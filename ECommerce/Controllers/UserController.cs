@@ -1,11 +1,7 @@
-using AutoMapper;
-using ECommerce.Data;
 using ECommerce.Model.Dto.Request;
-using ECommerce.Model.Dto.Response;
-using ECommerce.Model.Entity;
+using ECommerce.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace ECommerce.Controllers
 {
@@ -14,84 +10,62 @@ namespace ECommerce.Controllers
     [Authorize(Policy = "AdminOnly")]
     public class UserController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper;
+        private readonly IUserService _userService;
 
-        public UserController(ApplicationDbContext context, IMapper mapper)
+        public UserController(IUserService userService)
         {
-            _context = context;
-            _mapper = mapper;
+            _userService = userService;
         }
 
         [HttpGet]
+        [Authorize(Policy = "AdminOrCustomerSupport")]
         public async Task<IActionResult> GetAllUsers()
         {
-            var entities = await _context.User.ToListAsync();
-            var responseDtos = _mapper.Map<List<UserResponse>>(entities);
-            return Ok(responseDtos);
+            var result = await _userService.GetAllUsersAsync();
+            return Ok(result);
         }
 
         [HttpGet("{id}")]
+        [Authorize(Policy = "AdminOrCustomerSupport")]
         public async Task<IActionResult> GetUser(int id)
         {
-            var entity = await _context.User.FindAsync(id);
-            if (entity == null)
-            {
+            var result = await _userService.GetUserByIdAsync(id);
+            if (result == null)
                 return NotFound();
-            }
-
-            var responseDto = _mapper.Map<UserResponse>(entity);
-            return Ok(responseDto);
+            return Ok(result);
         }
 
         [HttpPost]
+        [Authorize(Policy = "AdminOrCustomerSupport")]
         public async Task<IActionResult> CreateUser(CreateUserRequest request)
         {
             if (request == null)
-            {
                 return BadRequest("User data is required.");
-            }
 
-            var entity = _mapper.Map<User>(request);
-            _context.User.Add(entity);
-            await _context.SaveChangesAsync();
-
-            var responseDto = _mapper.Map<UserResponse>(entity);
-            return Ok(responseDto);
+            var result = await _userService.CreateUserAsync(request);
+            return Ok(result);
         }
 
         [HttpPut("{id}")]
+        [Authorize(Policy = "AdminOrCustomerSupport")]
         public async Task<IActionResult> UpdateUser(int id, UpdateUserRequest request)
         {
             if (request == null)
-            {
                 return BadRequest("User data is required.");
-            }
 
-            var entity = await _context.User.FindAsync(id);
-            if (entity == null)
-            {
+            var result = await _userService.UpdateUserAsync(id, request);
+            if (result == null)
                 return NotFound();
-            }
-
-            _mapper.Map(request, entity);
-            await _context.SaveChangesAsync();
-
-            var responseDto = _mapper.Map<UserResponse>(entity);
-            return Ok(responseDto);
+            return Ok(result);
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> DeleteUser(int id)
         {
-            var entity = await _context.User.FindAsync(id);
-            if (entity == null)
-            {
+            var deleted = await _userService.DeleteUserAsync(id);
+            if (!deleted)
                 return NotFound();
-            }
-
-            _context.User.Remove(entity);
-            await _context.SaveChangesAsync();
             return NoContent();
         }
     }

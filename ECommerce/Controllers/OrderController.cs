@@ -1,12 +1,8 @@
-using AutoMapper;
-using ECommerce.Data;
 using ECommerce.Model.Dto.Request;
-using ECommerce.Model.Dto.Response;
-using ECommerce.Model.Entity;
 using ECommerce.Model.Enum;
+using ECommerce.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 
 namespace ECommerce.Controllers
@@ -15,160 +11,82 @@ namespace ECommerce.Controllers
     [ApiController]
     public class OrderController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper;
+        private readonly IOrderService _orderService;
+        private readonly IUserService _userService;
 
-        public OrderController(ApplicationDbContext context, IMapper mapper)
+        public OrderController(IOrderService orderService, IUserService userService)
         {
-            _context = context;
-            _mapper = mapper;
+            _orderService = orderService;
+            _userService = userService;
         }
 
         [HttpGet]
-        [Authorize(Policy = "OrderRead")]
+        [Authorize]
         public async Task<IActionResult> GetAllOrders()
         {
-            IQueryable<Order> query = _context.Orders;
+            var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            var currentUser = auth0UserId != null ? await _userService.GetUserByAuth0IdAsync(auth0UserId) : null;
 
-            // Sellers can only see orders that contain their own products
-            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
-            if (currentUserRole == nameof(UserRole.Seller))
-            {
-                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                                  ?? User.FindFirstValue("sub");
-                var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
-                if (currentUser != null)
-                {
-                    var sellerProductIds = await _context.Products
-                        .Where(p => p.SellerId == currentUser.UserId)
-                        .Select(p => p.ProductId)
-                        .ToListAsync();
+            int? userId = currentUser?.UserId;
+            var role = User.FindFirstValue(ClaimTypes.Role);
 
-                    query = query.Where(o => _context.OrderItems
-                        .Any(oi => oi.OrderId == o.OrderId && sellerProductIds.Contains(oi.ProductId)));
-                }
-            }
-            // Customers can only see their own orders
-            else if (currentUserRole == nameof(UserRole.Customer))
-            {
-                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                                  ?? User.FindFirstValue("sub");
-                var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
-                if (currentUser != null)
-                {
-                    query = query.Where(o => o.UserId == currentUser.UserId);
-                }
-            }
-
-            var entities = await query.ToListAsync();
-            var responseDtos = _mapper.Map<List<OrderResponse>>(entities);
-            return Ok(responseDtos);
+            var result = await _orderService.GetAllOrdersAsync(userId, role);
+            return Ok(result);
         }
 
         [HttpGet("{id}")]
-        [Authorize(Policy = "OrderRead")]
+        [Authorize(Policy = "OrderOwner")]
         public async Task<IActionResult> GetOrder(int id)
         {
-            var entity = await _context.Orders.FindAsync(id);
-            if (entity == null)
-            {
+            var result = await _orderService.GetOrderByIdAsync(id);
+            if (result == null)
                 return NotFound();
-            }
-
-            // Ownership/access checks
-            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
-            if (currentUserRole == nameof(UserRole.Customer) || currentUserRole == nameof(UserRole.Seller))
-            {
-                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                                  ?? User.FindFirstValue("sub");
-                var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
-                if (currentUser == null)
-                {
-                    return Unauthorized();
-                }
-
-                if (currentUserRole == nameof(UserRole.Customer) && entity.UserId != currentUser.UserId)
-                {
-                    return Forbid();
-                }
-
-                if (currentUserRole == nameof(UserRole.Seller))
-                {
-                    var hasProductInOrder = await _context.OrderItems
-                        .AnyAsync(oi => oi.OrderId == id && _context.Products
-                            .Any(p => p.ProductId == oi.ProductId && p.SellerId == currentUser.UserId));
-                    if (!hasProductInOrder)
-                    {
-                        return Forbid();
-                    }
-                }
-            }
-
-            var responseDto = _mapper.Map<OrderResponse>(entity);
-            return Ok(responseDto);
+            return Ok(result);
         }
 
         [HttpPost]
-        [Authorize(Policy = "CustomerSelf")]
+        [Authorize(Policy = "CustomerOnly")]
         public async Task<IActionResult> CreateOrder(CreateOrderRequest request)
         {
             if (request == null)
-            {
                 return BadRequest("Order data is required.");
-            }
 
-            var entity = _mapper.Map<Order>(request);
+            var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+            var currentUser = auth0UserId != null ? await _userService.GetUserByAuth0IdAsync(auth0UserId) : null;
+            if (currentUser == null)
+                return Unauthorized("User not found.");
 
-            // Automatically assign the UserId for customers
-            var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                              ?? User.FindFirstValue("sub");
-            var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
-            if (currentUser != null)
+            try
             {
-                entity.UserId = currentUser.UserId;
+                var result = await _orderService.CreateOrderAsync(request, currentUser.UserId);
+                return Ok(result);
             }
-
-            _context.Orders.Add(entity);
-            await _context.SaveChangesAsync();
-
-            var responseDto = _mapper.Map<OrderResponse>(entity);
-            return Ok(responseDto);
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpPut("{id}")]
-        [Authorize(Policy = "OrderFulfillment")]
+        [Authorize(Policy = "SellerOrOrderManagerOrAdmin")]
         public async Task<IActionResult> UpdateOrder(int id, UpdateOrderRequest request)
         {
             if (request == null)
-            {
                 return BadRequest("Order data is required.");
-            }
 
-            var entity = await _context.Orders.FindAsync(id);
-            if (entity == null)
-            {
+            var result = await _orderService.UpdateOrderStatusAsync(id, request.Status);
+            if (result == null)
                 return NotFound();
-            }
-
-            _mapper.Map(request, entity);
-            await _context.SaveChangesAsync();
-
-            var responseDto = _mapper.Map<OrderResponse>(entity);
-            return Ok(responseDto);
+            return Ok(result);
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Policy = "AdminOnly")]
+        [Authorize(Policy = "OrderManagerOrAdmin")]
         public async Task<IActionResult> DeleteOrder(int id)
         {
-            var entity = await _context.Orders.FindAsync(id);
-            if (entity == null)
-            {
+            var deleted = await _orderService.DeleteOrderAsync(id);
+            if (!deleted)
                 return NotFound();
-            }
-
-            _context.Orders.Remove(entity);
-            await _context.SaveChangesAsync();
             return NoContent();
         }
     }

@@ -1,11 +1,7 @@
-using AutoMapper;
-using ECommerce.Data;
 using ECommerce.Model.Dto.Request;
-using ECommerce.Model.Dto.Response;
-using ECommerce.Model.Entity;
+using ECommerce.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace ECommerce.Controllers
 {
@@ -13,92 +9,88 @@ namespace ECommerce.Controllers
     [ApiController]
     public class CategoryController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IMapper _mapper;
+        private readonly ICategoryService _categoryService;
 
-        public CategoryController(ApplicationDbContext context, IMapper mapper)
+        public CategoryController(ICategoryService categoryService)
         {
-            _context = context;
-            _mapper = mapper;
+            _categoryService = categoryService;
         }
 
         [HttpGet]
-        [Authorize(Policy = "CatalogRead")]
-        public async Task<IActionResult> GetAllCategories()
+        public async Task<IActionResult> GetAllCategories([FromQuery] int? parentId)
         {
-            var entities = await _context.Categories.ToListAsync();
-
-            var responseDtos = _mapper.Map<List<CategoryResponse>>(entities);
-            return Ok(responseDtos);
+            var result = await _categoryService.GetAllCategoriesAsync(parentId);
+            return Ok(result);
         }
 
         [HttpGet("{id}")]
-        [Authorize(Policy = "CatalogRead")]
         public async Task<IActionResult> GetCategory(int id)
         {
-            var entity = await _context.Categories.FindAsync(id);
-            if (entity == null)
-            {
+            var result = await _categoryService.GetCategoryByIdAsync(id);
+            if (result == null)
                 return NotFound();
-            }
+            return Ok(result);
+        }
 
-            var responseDto = _mapper.Map<CategoryResponse>(entity);
-            return Ok(responseDto);
+        [HttpGet("tree")]
+        public async Task<IActionResult> GetCategoryTree()
+        {
+            var result = await _categoryService.GetCategoryTreeAsync();
+            return Ok(result);
+        }
+
+        [HttpGet("{id}/children")]
+        public async Task<IActionResult> GetChildren(int id)
+        {
+            var result = await _categoryService.GetChildrenAsync(id);
+            return Ok(result);
+        }
+
+        [HttpGet("{id}/ancestors")]
+        public async Task<IActionResult> GetAncestors(int id)
+        {
+            var result = await _categoryService.GetAncestorsAsync(id);
+            return Ok(result);
+        }
+
+        [HttpGet("{id}/products")]
+        public async Task<IActionResult> GetProductsByCategory(int id, [FromQuery] bool includeSubcategories = false)
+        {
+            var result = await _categoryService.GetProductsByCategoryAsync(id, includeSubcategories);
+            return Ok(result);
         }
 
         [HttpPost]
-        [Authorize(Policy = "CatalogAccess")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> AddCategory(CreateCategoryRequest request)
         {
             if (request == null)
-            {
                 return BadRequest("Category data is required.");
-            }
 
-            var entity = _mapper.Map<Category>(request);
-
-            _context.Categories.Add(entity);
-
-            await _context.SaveChangesAsync();
-
-            var responseDto = _mapper.Map<CategoryResponse>(entity);
-            return Ok(responseDto);
+            var result = await _categoryService.CreateCategoryAsync(request);
+            return Ok(result);
         }
 
         [HttpPut("{id}")]
-        [Authorize(Policy = "CatalogAccess")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> UpdateCategory(int id, UpdateCategoryRequest request)
         {
             if (request == null)
-            {
                 return BadRequest("Category data is required.");
-            }
 
-            var entity = await _context.Categories.FindAsync(id);
-            if (entity == null)
-            {
+            var result = await _categoryService.UpdateCategoryAsync(id, request);
+            if (result == null)
                 return NotFound();
-            }
-
-            _mapper.Map(request, entity);
-            await _context.SaveChangesAsync();
-
-            var responseDto = _mapper.Map<CategoryResponse>(entity);
-            return Ok(responseDto);
+            return Ok(result);
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Policy = "CatalogAccess")]
+        [Authorize(Policy = "AdminOnly")]
         public async Task<IActionResult> DeleteCategory(int id)
         {
-            var entity = await _context.Categories.FindAsync(id);
-            if (entity == null)
-            {
+            var deleted = await _categoryService.DeleteCategoryAsync(id);
+            if (!deleted)
                 return NotFound();
-            }
-
-            _context.Categories.Remove(entity);
-            await _context.SaveChangesAsync();
             return NoContent();
         }
     }

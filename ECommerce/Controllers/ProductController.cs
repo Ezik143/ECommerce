@@ -3,7 +3,6 @@ using ECommerce.Data;
 using ECommerce.Model.Dto.Request;
 using ECommerce.Model.Dto.Response;
 using ECommerce.Model.Entity;
-using ECommerce.Model.Enum;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,116 +16,152 @@ namespace ECommerce.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IMapper _mapper;
+        private readonly ILogger<ProductController> _logger;
 
-        public ProductController(ApplicationDbContext context, IMapper mapper)
+        public ProductController(ApplicationDbContext context, IMapper mapper, ILogger<ProductController> logger)
         {
             _context = context;
             _mapper = mapper;
+            _logger = logger;
         }
 
         [HttpGet]
-        [Authorize(Policy = "CatalogRead")]
-        public async Task<IActionResult> GetAllProducts()
+        [Authorize]
+        public async Task<IActionResult> GetAllProducts([FromQuery] int? categoryId)
         {
-            var entities = await _context.Products.ToListAsync();
-            var responseDtos = _mapper.Map<List<ProductResponse>>(entities);
-            return Ok(responseDtos);
+            try
+            {
+                var query = _context.Products
+                    .Include(p => p.Category)
+                    .Include(p => p.Seller)
+                    .AsQueryable();
+
+                if (categoryId.HasValue)
+                    query = query.Where(p => p.CategoryId == categoryId.Value);
+
+                var entities = await query.ToListAsync();
+
+                var dto = _mapper.Map<List<ProductResponse>>(entities);
+
+                return Ok(dto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching products");
+                return StatusCode(500, new { message = "Failed to load products" });
+            }
         }
 
         [HttpGet("{id}")]
-        [Authorize(Policy = "CatalogRead")]
+        [Authorize]
         public async Task<IActionResult> GetProduct(int id)
         {
-            var entity = await _context.Products.FindAsync(id);
-            if (entity == null)
+            try
             {
-                return NotFound();
-            }
+                var entity = await _context.Products
+                    .Include(p => p.Category)
+                    .Include(p => p.Seller)
+                    .FirstOrDefaultAsync(p => p.ProductId == id);
 
-            var responseDto = _mapper.Map<ProductResponse>(entity);
-            return Ok(responseDto);
+                if (entity == null)
+                    return NotFound();
+
+                var dto = _mapper.Map<ProductResponse>(entity);
+
+                return Ok(dto);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching product {ProductId}", id);
+                return StatusCode(500, new { message = "Failed to load product" });
+            }
         }
 
         [HttpPost]
-        [Authorize(Policy = "ProductWrite")]
+        [Authorize(Policy = "SellerOnly")]
         public async Task<IActionResult> CreateProduct(CreateProductRequest request)
         {
-            if (request == null)
+            try
             {
-                return BadRequest("Product data is required.");
-            }
+                if (request == null)
+                    return BadRequest(new { message = "Product data is required." });
 
-            var entity = _mapper.Map<Product>(request);
-
-            // If the user is a Seller, automatically assign SellerId from the authenticated user
-            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
-            if (currentUserRole == nameof(UserRole.Seller))
-            {
-                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                                  ?? User.FindFirstValue("sub");
-                var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
+                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+                var currentUser = auth0UserId != null
+                    ? await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId)
+                    : null;
                 if (currentUser == null)
-                {
-                    return Unauthorized("Authenticated user not found in local database.");
-                }
+                    return Unauthorized(new { message = "Seller account not found." });
+
+                var entity = _mapper.Map<Product>(request);
                 entity.SellerId = currentUser.UserId;
+
+                await _context.Products.AddAsync(entity);
+                await _context.SaveChangesAsync();
+
+                var dto = _mapper.Map<ProductResponse>(entity);
+                return Ok(dto);
             }
-
-            _context.Products.Add(entity);
-            await _context.SaveChangesAsync();
-
-            var responseDto = _mapper.Map<ProductResponse>(entity);
-            return Ok(responseDto);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating product");
+                return StatusCode(500, new { message = ex.InnerException?.Message ?? ex.Message });
+            }
         }
+
+
 
         [HttpPut("{id}")]
-        [Authorize(Policy = "ProductWrite")]
+        [Authorize(Policy = "ProductOwner")]
         public async Task<IActionResult> UpdateProduct(int id, UpdateProductRequest request)
         {
-            if (request == null)
+            try
             {
-                return BadRequest("Product data is required.");
-            }
+                if (request == null)
+                    return BadRequest(new { message = "Product data is required." });
 
-            var entity = await _context.Products.FindAsync(id);
-            if (entity == null)
+                var entity = await _context.Products
+                    .Include(p => p.Category)
+                    .Include(p => p.Seller)
+                    .FirstOrDefaultAsync(p => p.ProductId == id);
+
+                if (entity == null)
+                    return NotFound();
+
+                _mapper.Map(request, entity);
+                await _context.SaveChangesAsync();
+
+                var dto = _mapper.Map<ProductResponse>(entity);
+                return Ok(dto);
+            }
+            catch (Exception ex)
             {
-                return NotFound();
+                _logger.LogError(ex, "Error updating product {ProductId}", id);
+                return StatusCode(500, new { message = ex.InnerException?.Message ?? ex.Message });
             }
-
-            // Ownership check: Sellers can only update their own products
-            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
-            if (currentUserRole == nameof(UserRole.Seller))
-            {
-                var auth0UserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                                  ?? User.FindFirstValue("sub");
-                var currentUser = await _context.User.FirstOrDefaultAsync(u => u.Auth0Id == auth0UserId);
-                if (currentUser == null || entity.SellerId != currentUser.UserId)
-                {
-                    return Forbid();
-                }
-            }
-
-            _mapper.Map(request, entity);
-            await _context.SaveChangesAsync();
-
-            var responseDto = _mapper.Map<ProductResponse>(entity);
-            return Ok(responseDto);
         }
 
+
+
         [HttpDelete("{id}")]
-        [Authorize(Policy = "AdminOnly")]
+        [Authorize(Policy = "SellerOrAdmin")]
         public async Task<IActionResult> DeleteProduct(int id)
         {
-            var entity = await _context.Products.FindAsync(id);
-            if (entity == null)
+            try
             {
-                return NotFound();
-            }
+                var entity = await _context.Products.FindAsync(id);
+                if (entity == null)
+                    return NotFound();
 
-            _context.Products.Remove(entity);
-            await _context.SaveChangesAsync();
-            return NoContent();
+                _context.Products.Remove(entity);
+                await _context.SaveChangesAsync();
+                return NoContent();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting product {ProductId}", id);
+                return StatusCode(500, new { message = "Failed to delete product" });
+            }
         }
     }
 }
