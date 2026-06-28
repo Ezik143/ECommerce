@@ -4,9 +4,6 @@ namespace ECommerce.Model.Dto.Request;
 
 public class UpdateProductRequest
 {
-    [Required(ErrorMessage = "Product ID is required")]
-    public int ProductId { get; set; }
-
     [Required(ErrorMessage = "Category is required")]
     [Range(1, int.MaxValue, ErrorMessage = "Please select a valid category")]
     public int CategoryId { get; set; }

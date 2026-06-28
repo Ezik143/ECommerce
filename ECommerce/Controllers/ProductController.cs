@@ -122,7 +122,6 @@ namespace ECommerce.Controllers
 
                 var entity = await _context.Products
                     .Include(p => p.Category)
-                    .Include(p => p.Seller)
                     .FirstOrDefaultAsync(p => p.ProductId == id);
 
                 if (entity == null)

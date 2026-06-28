@@ -3,6 +3,7 @@ using ECommerce.Authorization.Requirements;
 using ECommerce.Data;
 using ECommerce.Model.Entity;
 using ECommerce.Model.Enum;
+using ECommerce.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;

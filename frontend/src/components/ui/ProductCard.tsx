@@ -16,12 +16,12 @@ export const ProductCard = ({
   isAdding = false,
   variant = 'catalog',
 }: ProductCardProps) => {
-  const imageUrl = product.imageUrl || 'https://via.placeholder.com/300x200?text=No+Image';
+  const imageUrl = product.imageUrl || '/images/placeholder-product.svg';
 
   return (
     <div className="product-card animate-fade-in-up">
       <Link to={`/products/${product.productId}`} className="product-card-image">
-        <img src={imageUrl} alt={product.name} loading="lazy" />
+        <img src={imageUrl} alt={product.name ? `Product: ${product.name}` : 'Product image not available'} loading="lazy" />
         {variant === 'seller' && product.stockQuantity < 10 && product.stockQuantity > 0 && (
           <span className="product-card-badge badge badge-yellow">Low Stock: {product.stockQuantity}</span>
         )}

@@ -1057,11 +1057,6 @@ select.input {
   left: 0.5rem;
   display: flex;
   gap: 0.375rem;
-  opacity: 0;
-  transition: opacity var(--transition-base);
-}
-
-.product-card:hover .overlay-actions {
   opacity: 1;
 }
 

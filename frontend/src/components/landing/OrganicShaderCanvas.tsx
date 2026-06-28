@@ -1,5 +1,5 @@
-import { useRef, useMemo } from 'react'
-import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { useRef, useMemo, useEffect } from 'react'
+import { Canvas, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 
 const vertexShader = `
@@ -63,11 +63,31 @@ function ShaderPlane() {
     []
   )
 
-  useFrame(({ clock }) => {
-    uniforms.uTime.value = clock.getElapsedTime()
-    uniforms.uMouse.value.x = pointer.x
-    uniforms.uMouse.value.y = pointer.y
-  })
+  const animationTime = useRef(0)
+  const animationFrame = useRef<number>(0)
+
+  useEffect(() => {
+    const animate = () => {
+      const now = performance.now()
+      const delta = now - animationTime.current
+      
+      if (delta >= 100) { // Update every 100ms instead of every frame
+        uniforms.uTime.value = animationTime.current / 1000
+        uniforms.uMouse.value.x = pointer.x
+        uniforms.uMouse.value.y = pointer.y
+        animationTime.current = now
+      }
+      
+      animationFrame.current = requestAnimationFrame(animate)
+    }
+    
+    animationTime.current = performance.now()
+    animationFrame.current = requestAnimationFrame(animate)
+    
+    return () => {
+      cancelAnimationFrame(animationFrame.current)
+    }
+  }, [pointer.x, pointer.y])
 
   return (
     <mesh ref={meshRef}>

@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from 'react';
+import { useEffect, useReducer, FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -299,42 +299,98 @@ export const CheckoutPage = () => {
       )}
 
       <Modal isOpen={showAddressModal} onClose={() => { dispatch({ showAddressModal: false }); reset(emptyAddress); }} title="Add New Address">
-        <form onSubmit={handleSubmit(onAddAddress)} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div>
-            <label className="label" htmlFor="street">Street</label>
-            <input id="street" type="text" className="input" placeholder="123 Main St" {...register('street')} />
-            <FieldError name="street" errors={errors} />
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+        <form 
+          onSubmit={handleSubmit(onAddAddress)} 
+          style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
+          aria-label="Add new shipping address"
+          role="form"
+        >
+          <fieldset style={{ border: 'none', padding: 0, margin: 0 }}>
             <div>
-              <label className="label" htmlFor="city">City</label>
-              <input id="city" type="text" className="input" {...register('city')} />
-              <FieldError name="city" errors={errors} />
+              <label className="label" htmlFor="street">Street</label>
+              <input 
+                id="street" 
+                type="text" 
+                className="input" 
+                placeholder="123 Main St" 
+                {...register('street')} 
+                required
+                aria-required="true"
+              />
+              <FieldError name="street" errors={errors} />
             </div>
-            <div>
-              <label className="label" htmlFor="state">State</label>
-              <input id="state" type="text" className="input" {...register('state')} />
-              <FieldError name="state" errors={errors} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label className="label" htmlFor="city">City</label>
+                <input 
+                  id="city" 
+                  type="text" 
+                  className="input" 
+                  {...register('city')} 
+                  required
+                  aria-required="true"
+                />
+                <FieldError name="city" errors={errors} />
+              </div>
+              <div>
+                <label className="label" htmlFor="state">State</label>
+                <input 
+                  id="state" 
+                  type="text" 
+                  className="input" 
+                  {...register('state')} 
+                  required
+                  aria-required="true"
+                />
+                <FieldError name="state" errors={errors} />
+              </div>
             </div>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div>
-              <label className="label" htmlFor="postalCode">Postal Code</label>
-              <input id="postalCode" type="text" className="input" {...register('postalCode')} />
-              <FieldError name="postalCode" errors={errors} />
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div>
+                <label className="label" htmlFor="postalCode">Postal Code</label>
+                <input 
+                  id="postalCode" 
+                  type="text" 
+                  className="input" 
+                  {...register('postalCode')} 
+                  required
+                  aria-required="true"
+                  pattern="\d{5}(-\d{4})?"
+                />
+                <FieldError name="postalCode" errors={errors} />
+              </div>
+              <div>
+                <label className="label" htmlFor="country">Country</label>
+                <input 
+                  id="country" 
+                  type="text" 
+                  className="input" 
+                  {...register('country')} 
+                  required
+                  aria-required="true"
+                />
+                <FieldError name="country" errors={errors} />
+              </div>
             </div>
-            <div>
-              <label className="label" htmlFor="country">Country</label>
-              <input id="country" type="text" className="input" {...register('country')} />
-              <FieldError name="country" errors={errors} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.5rem' }}>
+              <button 
+                type="button" 
+                onClick={() => { dispatch({ showAddressModal: false }); reset(emptyAddress); }} 
+                className="btn btn-secondary"
+                aria-label="Cancel adding new address"
+              >
+                Cancel
+              </button>
+              <button 
+                type="submit" 
+                disabled={isSubmitting} 
+                className="btn btn-primary"
+                aria-label="Save new address"
+              >
+                {isSubmitting ? 'Saving...' : 'Save Address'}
+              </button>
             </div>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', paddingTop: '0.5rem' }}>
-            <button type="button" onClick={() => { dispatch({ showAddressModal: false }); reset(emptyAddress); }} className="btn btn-secondary">Cancel</button>
-            <button type="submit" disabled={isSubmitting} className="btn btn-primary">
-              {isSubmitting ? 'Saving...' : 'Save Address'}
-            </button>
-          </div>
+          </fieldset>
         </form>
       </Modal>
 
